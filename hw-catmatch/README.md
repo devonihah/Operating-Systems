@@ -95,12 +95,12 @@ script, `driver.sh`, is in the same directory as `catmatch.c`.
 
 Reading the man pages for each of the following will make your life easier:
 
- - `getpid()`
- - `printf()`
- - `fprintf()`
- - `fopen()`
- - `fgets()`
- - `getenv()`
- - `strstr()`
- - `stdout`
- - `stderr`
+ - `getpid(2)`
+ - `printf(3)`
+ - `fprintf(3)`
+ - `fopen(3)`
+ - `fgets(3)`
+ - `getenv(3)`
+ - `strstr(3)`
+ - `stdout(3)`
+ - `stderr(3)`

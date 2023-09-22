@@ -16,10 +16,10 @@ with that code and analyze what it is doing.
     Additionally, man pages for the following are also referenced throughout the
     assignment:
 
-    - `pthreads`
-    - `sem_init()`
-    - `sem_wait()`
-    - `sem_post()`
+    - `pthreads(7)`
+    - `sem_init(3)`
+    - `sem_wait(3)`
+    - `sem_post(3)`
 
  2. Run `make` to build four servers: `echoserveri`, `echoserverp`,
     `echoservert`, and `echoservert_pre`.  These are versions of the echo

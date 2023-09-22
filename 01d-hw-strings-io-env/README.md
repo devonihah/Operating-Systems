@@ -14,24 +14,24 @@ Read the following in preparation for this assignment:
 Additionally, man pages for the following are also referenced throughout the
 assignment:
 
- - `write()`
- - `charsets`
- - `ascii`
+ - `write(2)`
+ - `charsets(7)`
+ - `ascii(7)`
  - `printf(3)`
- - `fprintf()`
- - `strcmp()`
- - `memcmp()`
- - `memset()`
- - `strcpy()`
- - `sprintf()`
- - `stdin`
- - `stdout`
- - `stderr`
- - `fileno()`
- - `open()`
- - `read()`
- - `close()`
- - `getenv()`
+ - `fprintf(3)`
+ - `strcmp(3)`
+ - `memcmp(3)`
+ - `memset(3)`
+ - `strcpy(3)`
+ - `sprintf(3)`
+ - `stdin(3)`
+ - `stdout(3)`
+ - `stderr(3)`
+ - `fileno(3)`
+ - `open(2)`
+ - `read(2)`
+ - `close(2)`
+ - `getenv(3)`
 
 
 # Instructions
@@ -112,7 +112,7 @@ ASCII has limitations in that it only supports 127 unique characters
 (2<sup>7</sup> - 1).  Thus, other character sets have been developed, the most
 widely used of which is Unicode.  Unicode has the ambitious goal of having a
 mapping for "every character in every human language" (man page for
-`charsets`).  ASCII is a subset of Unicode: if a byte value is less than 128,
+`charsets(7)`).  ASCII is a subset of Unicode: if a byte value is less than 128,
 then it is ASCII, but if it greater, then then it is encoded for Unicode,
 typically using a byte encoding called UTF-8.  For example, the following array
 of six bytes together represent the two simplified Chinese characters that mean
@@ -141,7 +141,7 @@ Yup, that is a "joy" emoji.  Not exactly "human language", but you get the
 idea.  If it doesn't display in the terminal, try copying it and pasting it in
 another application that has the proper support to display it.
 
-For more information, see the man pages for `charsets` and `ascii`.
+For more information, see the man pages for `charsets(7)` and `ascii(7)`.
 
 
 ## `printf()` and Friends
@@ -195,7 +195,7 @@ sequence of bytes/characters:
 | Decimal | 104 | 101 | 108 | 108 | 111 | 32 | 52 | 50 | 10 |
 | ASCII | `'h'` | `'e'` | `'l'` | `'l'` | `'o'` | `' '` | `'4'` | `'2'` | `'\n'` |
 
-Again, see the man pages for `charsets` and `ascii`.  And you will see more
+Again, see the man pages for `charsets(7)` and `ascii(7)`.  And you will see more
 examples of this later in the assignment.
 
 
@@ -247,10 +247,10 @@ and observe the effects of `malloc()` and `free()` using `valgrind`.
     C.)
 
  3. *What is the ASCII character associated with the hexadecimal value 0x23?*
-    (Hint: See the man page for `ascii`.)
+    (Hint: See the man page for `ascii(7)`.)
 
  4. *What is the hexadecimal value of the ASCII character `z` (lower case)?*
-    (Hint: See the man page for `ascii`.)
+    (Hint: See the man page for `ascii(7)`.)
 
  5. `s2` is also allocated on the stack.  Find the number of bytes/characters
     allocated on the stack for `s2` using the same methodology as you used for
@@ -509,7 +509,7 @@ file descriptors and reading and writing to files, including standard input,
 standard output, and standard error.  Additionally, you will learn about
 user-level buffering with file streams (`FILE *`).
 
- 26. Read the man page for `stdin` (which also shows the information for
+ 26. Read the man page for `stdin(3)` (which also shows the information for
      `stdout` and `stderr`).  Now use the `fileno()` and `printf()` functions
      to find and print out the file descriptor values for the `stdin`,
      `stdout`, and `stderr` file streams, each on a line by itself.  For
@@ -664,7 +664,7 @@ user-level buffering with file streams (`FILE *`).
      *What differences do you observe in the output of the strings using
      `fprintf()` vs. using `write()` and why?*  (Hint: See
      [intro](#printf-and-friends) and the "NOTES" section of the man page for
-     `stdout`.)
+     `stdout(3)`.)
 
  47. Repeat the instructions from question 46.  However, this time, use the
      `fflush()` function to flush standard output immediately after printing

@@ -2,8 +2,10 @@
 
 The purpose of this assignment is to help you become more familiar with the
 concepts of process creation, signals, and job control.  To do this, you will
-implement a real shell, which reads commands from standard input and runs the
-programs specified in those commands.
+implement a shell like `bash` (GNU Bourne-Again SHell), which used in
+operating systems like Linux.  This shell will read commands from standard
+input and run the programs specified in those commands.  It will also support
+multiple jobs.
 
 # Table of Contents
 
@@ -50,24 +52,24 @@ Read the following in preparation for this assignment:
 Additionally, man pages for the following are also referenced throughout the
 assignment:
 
- - `fork()`
- - `signal`
- - `sigaction()`
- - `sigprocmask()`
- - `waitpid()`
- - `exec`
- - `execve()`
- - `setpgid()`
- - `kill()`
+ - `fork(2)`
+ - `signal(7)`, `signal(2)`
+ - `sigaction(2)`
+ - `sigprocmask(2)`
+ - `waitpid(2)`
+ - `exec(3)`
+ - `execve(2)`
+ - `setpgid(2)`
+ - `kill(1)`, `kill(2)`
 
 
 ## Resources Provided
 
- - `tsh.c` - contains a functional skeleton of a simple shell (i.e., "tiny
-   shell").  This is where you will do your work!
- - `Makefile` - a file used by the `make` command to building, cleaning, and
+ - `tsh.c` - a file containing a functional skeleton of a simple shell (i.e.,
+   "tiny shell").  This is where you will do your work!
+ - `Makefile` - a file used by the `make` command for building, cleaning, and
    performing automated testing of your code.
- - `tshref` - A binary file containing a reference implementation of tiny
+ - `tshref` - a binary file containing a reference implementation of tiny
    shell to demonstrate correct behavior.
  - `sdriver.pl` - a Perl script that runs a trace file against your shell to
    test its functionality.
@@ -76,8 +78,22 @@ assignment:
    if their behaviors differ.
  - `trace01.txt` - `trace16.txt` - trace files for testing various aspects of
    your shell.
- - `myint.c`, `mystop.c`, `mysplit.c`, `myspin.c` - C programs to be run from
-   _within_ your shell for testing its functionality.
+ - C programs to be run from _within_ your shell for testing its functionality.
+   - `myspin.c` - Runs a `sleep()` loop for as many seconds as are specified on
+     the command line.  Used as a program that simply "runs" for a defined
+     amount of time.
+   - `mysplit.c` - Calls `fork()` and then runs a `sleep()` loop for as many
+     seconds as are specified on the command line, after which both parent and
+     child terminate.  Used to test group membership.
+   - `myint.c` - Runs a `sleep()` loop for as many seconds as are
+     specified on the command line.  After that, sends a signal of type
+     `SIGINT` to itself, causing it to terminate.  Used to test detection of
+     change in process state from a signal received outside the shell.
+   - `mystop.c` - Runs a `sleep()` loop for as many seconds as are
+     specified on the command line.  After that, sends a signal of type
+     `SIGTSTP` to itself, causing it to change to suspend execution (i.e.,
+     change to state "stopped").  Used to test detection of change in process
+     state from a signal received outside the shell.
 
 
 ## Reference Tiny Shell
@@ -602,7 +618,14 @@ Call the `parseline()` helper function,
 [which has been implemented for you](#helper-functions).  Call `builtin_cmd()`
 to see if the command line corresponds to a built-in command.  Otherwise, do
 the following:
- - Block `SIGCHLD`, `SIGINT`, and `SIGTSTP` signals.
+ - Block `SIGCHLD`, `SIGINT`, and `SIGTSTP` signals. (They will be unblocked
+   after the `fork()` in both the parent and the child.)  The reason for adding
+   this is to avoid a race condition.  If the child (created with a call to
+   `fork()`) runs to completion before the parent has had a chance to add a job
+   for it, then the parent will receive `SIGCHLD`, start executing
+   `sigchld_handler()`, and attempt to delete a job that does not exist.
+   Temporarily blocking `SIGCHLD` allows the parent to add the child before
+   `SIGCHLD` can ever be received.
  - Fork a child process.
  - In the child process:
    - Unblock signals by restoring the mask.
@@ -668,7 +691,7 @@ they did previously, but you should also see output from the print statement
 that you just added when the process finishes.
 
 `waitpid()` is the key function that you will utilize in `sigchld_handler()`.
-Read the man page for `waitpid()` if you haven't already, and pay special
+Read the man page for `waitpid(2)` if you haven't already, and pay special
 attention to the following:
  - the different options for the `pid` parameter;
  - the different options for the `options` parameter (note: multiple options
@@ -912,8 +935,7 @@ structures (`struct job_t`), `jobs`:
  - Place helpful print statements in your code, for debugging.  Even though
    your standard output is not redirected in this lab, printing to standard
    error (instead of standard output) is a good practice.  In this case, use
-   `fprintf(stderr, ...)`.   Remember to flush standard error using `fflush()`,
-   or output might get buffered and not show up when you expected it to.
+   `fprintf(stderr, ...)`.
  - If you are using VScode,
    [set up the debugger](../contrib/vscode-debugger/README.md), and use it to
    walk through your code.
@@ -926,7 +948,9 @@ structures (`struct job_t`), `jobs`:
    calls `strace` on `./tsh`, showing only calls related to signals. The `-f`
    option indicates that child processes should be traced also, which is
    desirable since an important part of the shell is creating and managing
-   child processes.  See the man page for `strace` for more usage information.
+   child processes.  See the man page for `strace(1)` for more usage information.
+   Note that any calls to `fork()` will appear as `clone()` in `strace()`
+   output.
 
 
 # Automated Testing

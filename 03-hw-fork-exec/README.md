@@ -15,10 +15,10 @@ assignment before beginning!
     Additionally, man pages for the following are also referenced throughout
     the assignment:
 
-    - `fork()`
-    - `execve()`
-    - `pipe()`
-    - `dup2()`
+    - `fork(2)`
+    - `execve(2)`
+    - `pipe(2)`, `pipe(7)`
+    - `dup2(2)`
 
  2. Run `make` to build two executables: `fork` and `exec`.  These are programs
     that illustrate the system calls `fork()` and `execve()`.
@@ -79,7 +79,7 @@ should read all of problems 4 through 11 before you start.
       - `ucmd`: the command executed
     - the process ancestry is illustrated
 
-    Use the man page for `ps` for more on how to use these options.
+    Use the man page for `ps(1)` for more on how to use these options.
 
     *Show the two `ps` commands you used, each followed by its respective
     output.*
@@ -158,10 +158,10 @@ the same system-wide file description can write to the same open file.
      - Comment out _all_ calls to `sleep()`.
      - Comment out _all_ `printf()` calls that print "...done sleeping".
      - Before the call to `fork()`, open the file `fork-output.txt` for writing
-       (see the man page for `fopen`).
+       (see the man page for `fopen(3)`).
      - Write "BEFORE FORK (%d)\n" to the file before the call to `fork()`,
        replacing "%d" with the file descriptor of the newly opened file (see
-       the man page for `fileno()`).
+       the man page for `fileno(3)`).
      - Call `fflush()` on the file stream immediately after writing.
 
        Note that any data buffered in a file stream is part of the user-space
@@ -174,7 +174,7 @@ the same system-wide file description can write to the same open file.
        - Sleep for 5 seconds
        - write "SECTION B (%d)\n" to the file, replacing "%d" with the
          file descriptor of the newly opened file (see the man page for
-         `fileno()`).
+         `fileno(3)`).
      - In section C, do the following, in order:
        - write "SECTION C (%d)\n" to the file you opened, replacing "%d" with
          the file descriptor of the newly opened file.
@@ -182,7 +182,7 @@ the same system-wide file description can write to the same open file.
 
          Note that `fclose()` calls `close()` on the file descriptor, after
          flushing the buffer of the file stream (see the man page for
-         `fclose()`).
+         `fclose(3)`).
        - sleep for 5 seconds.
 
      Re-`make` and run the newly recompiled `fork`. *Using `cat`, show the
@@ -194,7 +194,7 @@ the same system-wide file description can write to the same open file.
  14. *Based on both the contents of `fork-output.txt` and what was written to
      the terminal, which file descriptor(s) were inherited by the child
      process?*  (Hint: See "Note the following further points" in the man page
-     for `fork()`.)
+     for `fork(2)`.)
 
  15. Consider the timing of the `fprintf()` calls made 1) before the `fork()`,
      2) in section B, and 3) in section C.  In each call a process wrote to
@@ -204,13 +204,13 @@ the same system-wide file description can write to the same open file.
      *Based on the content of `fork-output.txt`, did the second write pick up
      where the first write left off, or did it start over at the beginning?
      Why?*  (Hint: See "Note the following further points" in the man page
-     for `fork()` and the section titled "Open file descriptions" in the man
+     for `fork(2)` and the section titled "Open file descriptions" in the man
      page for `open(2)`.)
 
  16. *Based on the content of `fork-output.txt`, did the third write pick up
      where the second write left off, or did it start over at the beginning?
      Why?*  (Hint: See "Note the following further points" in the man page
-     for `fork()` and the section titled "Open file descriptions" in the man
+     for `fork(2)` and the section titled "Open file descriptions" in the man
      page for `open(2)`.)
 
  17. Consider the timing of the `fclose()` call in relation to the third write
@@ -219,7 +219,7 @@ the same system-wide file description can write to the same open file.
 
      *Based on the content of `fork-output.txt`, did this third write succeed?
      Why or why not?*  (Hint: See "Note the following further points" in the
-     man page for `fork()` and the second paragraph in the "DESCRIPTION"
+     man page for `fork(2)` and the second paragraph in the "DESCRIPTION"
      section of the man page for `close(2)`.)
 
 
@@ -230,11 +230,12 @@ between different processes.
 
  18. Modify `fork.c` according to the following:
 
+     - Comment out _all_ calls to `sleep()`.
      - Prior to the call to `fork()`, open a pipe (see the man page for
-       `pipe()`).
+       `pipe(2)`).
      - In section B:
        - Close the file descriptor corresponding to the _read_ end of the pipe
-         (see the man pages for `pipe()` and `close()`).
+         (see the man pages for `pipe(2)` and `close(2)`).
        - Write "hello from Section B\n" to the file descriptor corresponding to
          the _write_ end of the pipe (see the man page for `write(2)`).  Note
          that unlike `fprintf()`, which takes a null-terminated string (`char *`)
@@ -246,26 +247,27 @@ between different processes.
        - Call `close()` on the write end of the pipe.
      - In section C:
        - Close the file descriptor corresponding to the _write_ end of the
-         pipe (see the man pages for `pipe()` and `close()`).
+         pipe (see the man pages for `pipe(2)` and `close(2)`).
        - Read from file descriptor corresponding to the _read_ end of the pipe
          (see the man page for `read(2)`) into a buffer that you have declared.
          Save the number of bytes read (return value of `read()`), and use that
          value to add a null character after them, so string operations can be
-         performed on it (see the man page for `string`).
+         performed on it (see the man page for `string(3)`).
        - Print the number of bytes received from calling `read()` on the pipe.
        - Print the string retrieved from `read()` to stdout.  Note that
          `printf()` and `fprintf()` require a null-terminated string, i.e., to
          know where the string ends.  If you have not properly added the null
          character, the command will yield unexpected results.  See an example
          of adding the null byte
-         [here](../01d-hw-strings-io-env#part-5---inputoutput).
+         [here](../01d-hw-strings-io-env#part-5---inputoutput) (i.e., after
+         `read()` was used to read bytes from the file).
 
      Re-`make` and run the newly recompiled `fork`.  *Show the output of your
      program.*
 
  19. *Is the ordering of `pipe()` and `fork()` important?  Why or why not?*
      (Hint: See "Note the following further points" in the man page for
-     `fork()`)
+     `fork(2)`)
 
  20. The way that you have set things up, one process is writing to the pipe,
      and another is reading from the pipe.  *Can the communication also go in
@@ -280,9 +282,10 @@ between different processes.
        - Immediately before calling `close()` on the write end of the pipe,
          sleep for 10 seconds.
      - In section C:
-       - After reading from the pipe and printing the results, perform a second
-         read from the pipe, and again print the number of bytes read from the
-         pipe.
+       - Immediately after reading from the pipe and printing the results,
+         perform a second read from the pipe, and again print the number of
+         bytes read from the pipe.  All this should happen before calling
+         `close()` on the read end of the pipe.
 
      Re-`make` and run the newly recompiled `fork`.
 
@@ -302,7 +305,7 @@ between different processes.
 
  25. *What was the effect of the call referred to in the previous question, as
      evidenced by the number of bytes returned?*  (Hint: See the man pages for
-     `pipe(7)`.and `pipe(2)`)
+     `pipe(7)` and `pipe(2)`)
 
 
 # Part 5: `execve()` Overview
@@ -320,15 +323,15 @@ might want to revisit these questions after you go through that part.
 
 In the next steps, you will be using the `ps` command to examine how a process
 associated with the `exec` program changes over time. Because of this, you
-should read all of problems 20 through 23 before you start.
+should read all of problems 28 through 31 before you start.
 
  28. In the left ("command execution") pane of your tmux window, run the `exec`
      program, passing `/bin/cat` as the first command-line argument. *Show your
      terminal commands and the output.*
 
  29. In the right ("system analysis") pane of your tmux window, run the `ps`
-     command, first during the initial 30-second `sleep()` call, then again after
-     the first 30 seconds is over, but before the end of the program.
+     command, first during the initial 30-second `sleep()` call, then again
+     after the first 30 seconds is over, but before the end of the program.
 
      Use the `-p` and `-o` options when you run `ps` so that, respectively:
 
@@ -340,7 +343,7 @@ should read all of problems 20 through 23 before you start.
        - `state`: the state of the process, e.g., "Running", "Sleep", "Zombie"
        - `ucmd`: the command executed
 
-     Use the man page for `ps` for more on how to use these options.
+     Use the man page for `ps(1)` for more on how to use these options.
 
      *Show your terminal commands and the output.*
 

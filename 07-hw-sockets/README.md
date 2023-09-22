@@ -16,10 +16,10 @@ both communication types.
     Additionally, man pages for the following are also referenced throughout
     the assignment:
 
-    - `udp`
-    - `tcp`
-    - `send()` / `sendto()` / `write()`
-    - `recv()` / `recvfrom()` / `read()`
+    - `udp(7)`
+    - `tcp(7)`
+    - `send(2)` / `sendto(2)` / `write(2)`
+    - `recv(2)` / `recvfrom(2)` / `read(2)`
 
  2. Run `make` to build two executables: `client` and `server`.  These are
     programs that will communicate with each other as client and server,
@@ -246,7 +246,7 @@ before.
      `recvfrom()`?*  Hint: look at the server output, and refer to `server.c`.
  11. *When more than one message was ready for reading, why didn't the server
      read _all_ the messages that were ready with a single call to
-     `recvfrom()`?*  Hint: see the man page for `udp`, specifically within the
+     `recvfrom()`?*  Hint: see the man page for `udp(7)`, specifically within the
      first three paragraphs of the "DESCRIPTION" section.
 
 Change the value of the `len` argument passed to `recvfrom()` in `server.c`
@@ -329,8 +329,8 @@ Make the following modifications:
  15. *With the new changes you have implemented, how have the semantics
      associated with the call to `connect()` changed?  That is, what will
      happen now when you call `connect()` that is different from when you
-     called `connect()` with a UDP socket?*  See the man pages for `connect()`,
-     `tcp`, and `udp`.
+     called `connect()` with a UDP socket?*  See the man pages for `connect(2)`,
+     `tcp(7)`, and `udp(7)`.
 
 Re-run `make` to rebuild both binaries.  Interrupt and restart the server in
 the left "remote" pane.
@@ -437,7 +437,7 @@ the socket connection is established:
 
    Note that `write()` / `send()` will return the number of bytes actually
    sent, which might be less than the number you requested to be sent (see the
-   `write()` man page for more!), so you need to keep track of the total bytes
+   `write(2)` man page for more!), so you need to keep track of the total bytes
    sent to ensure that all has been sent and write your loop termination test
    accordingly.
 
@@ -581,7 +581,7 @@ code/questions, set up your own experiments, and/or read the man pages.
 
  27. What happens when you call `read()` (or `recv()`) on an open socket (UDP
      or TCP), and there are no messages are available at the socket for
-     reading?  Hint: see the man page for `recv()`, especially the
+     reading?  Hint: see the man page for `recv(2)`, especially the
      "DESCRIPTION" section.  See also the instructions in Part 1.
 
  28. What happens when you call `read()` (or `recv()`) on an open socket (UDP
@@ -591,7 +591,7 @@ code/questions, set up your own experiments, and/or read the man pages.
 
  29. What happens you you call `read()` (or `recv()`) on an open UDP socket,
      and you specify a length that is less than the length of the next
-     datagram?  Hint: see the man page for `udp`, specifically within the first
+     datagram?  Hint: see the man page for `udp(7)`, specifically within the first
      three paragraphs of the "DESCRIPTION" section.  See also questions
      12 and 13.
 

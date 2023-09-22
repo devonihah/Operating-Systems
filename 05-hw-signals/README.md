@@ -19,9 +19,9 @@ some simple examples of signal usage.  You will begin coding in the
 Read the following in preparation for this assignment:
  - Section 8.5 in the book
  - The man pages for the following system calls:
-   - `signal`
-   - `sigprocmask`
-   - `kill`
+   - `signal(7)`
+   - `sigprocmask(2)`
+   - `kill(2)`
 
 
 ## Resources Provided
@@ -279,6 +279,13 @@ Remember the following about signals:
  - The default behavior of `SIGCHLD` is to ignore; the default behavior of
    others, including `SIGTERM` and `SIGINT` is to terminate.  See the man page
    for `signal(7)` for more.
+
+Also note that if a `sleep()` call is interrupted by the receipt of a signal,
+it will not continue sleeping up to the designated time after the interruption.
+Instead, it will return "the number of seconds left to sleep," as per the
+`sleep(3)` man page.  This should not affect the timing of your calls to
+`kill()` and `sleep()`, but you might be surprised about the time taken to
+complete a given scenario without this knowledge.
 
 
 # Automated Testing

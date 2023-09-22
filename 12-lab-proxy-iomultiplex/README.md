@@ -61,24 +61,23 @@ Read the following in preparation for this assignment:
 Additionally, man pages for the following are referenced throughout the
 assignment:
 
- - `epoll_create1()` - shows the usage of the simple function to create an
+ - `epoll_create1(2)` - shows the usage of the simple function to create an
    epoll instance
- - `epoll_ctl()` - shows the definition of the `epoll_data_t` and
+ - `epoll_ctl(2)` - shows the definition of the `epoll_data_t` and
    `struct epoll_event` structures, which are used by both `epoll_ctl()` and
    `epoll_wait()`.  Also describes the event types with which events are
    registered to an epoll instance, e.g., for reading or writing, and which
    type of triggering is used (for this lab you will use edge-triggered
    monitoring).
- - `epoll_wait()` - shows the usage of the simple `epoll_wait()` function,
+ - `epoll_wait2)` - shows the usage of the simple `epoll_wait()` function,
    including how events are returned and how errors are indicated,
- - `fcntl()`
- - `socket(7)`
- - `socket()`
- - `send()`
- - `recv()`
- - `bind()`
- - `connect()`
- - `getaddrinfo()`
+ - `fcntl(2)`
+ - `socket(2)`, `socket(7)`
+ - `send(2)`
+ - `recv(2)`
+ - `bind(2)`
+ - `connect(2)`
+ - `getaddrinfo(3)`
 
 
 # Instructions
@@ -128,7 +127,7 @@ Write functions for each of the following:
    clients.
    - Loop to `accept()` any and all client connections.  For each new file
      descriptor (i.e., corresponding to a new client) returned, configure it to
-     use non-blocking I/O (see the man page for `fcntl()` for how to do this),
+     use non-blocking I/O (see the man page for `fcntl(2)` for how to do this),
      and register each returned client-to-proxy socket with the epoll instance
      that you created for reading, using edge-triggered monitoring (i.e.,
      `EPOLLIN | EPOLLET`).  You should only break out of your loop and stop
@@ -155,7 +154,7 @@ Now add the following to `main()`:
    - Calls `epoll_wait()` loop with a timeout of 1 second.
    - If the result was an error (i.e., return value from `epoll_wait()` is less
      than 0), then handle the error appropriately (see the man page for
-     `epoll_wait()` for more).
+     `epoll_wait(2)` for more).
    - If there was no error, you should loop through all the events and handle
      each appropriately.  For now, just start with handling new clients.  We
      will implement the handling of existing clients later.  If the event
@@ -336,7 +335,7 @@ immediately, but you cannot initiate the `write()` call until `epoll_wait()`
 indicates that this socket is ready for writing. Because the socket is
 non-blocking, `connect()` will return before the connection is actually
 established.  In this case, the return value is -1 and `errno` is set to
-`EINPROGRESS` (see the `connect()` man page).  This also means that when
+`EINPROGRESS` (see the `connect(2)` man page).  This also means that when
 iterating through the results of `getaddrinfo()` when a socket is non-blocking,
 the return value of `connect()` is not a useful check for determining whether a
 given address is reachable.  This works
@@ -462,7 +461,7 @@ to the `epoll_wait()` loop to see if it is ready for more I/O.  When a return
 value to `read()` or `write()` is less than 0 and `errno` is `EAGAIN` or
 `EWOULDBLOCK`, it is a an indicator that you are done for the moment--but you
 need to know where you should start next time it's your turn (see man pages for
-`accept()` and `read()`, and search for "blocking").  For example, you should
+`accept(2)` and `read(2)`, and search for "blocking").  For example, you should
 associate the following with each client request.
 
  - the client-to-proxy socket, i.e., the one corresponding to the requesting

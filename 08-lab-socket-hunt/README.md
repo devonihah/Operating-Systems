@@ -42,22 +42,20 @@ Your job is to write the client.
 
 ## Reading
 
-man pages for the following are referenced throughout the assignment:
+The man pages for the following are referenced throughout the assignment:
 
- - `udp`
- - `ip`
- - `ipv6`
- - `socket`
- - `socket()`
- - `send()`
- - `recv()`
- - `bind()`
- - `getaddrinfo()`
- - `htons()`
- - `ntohs()`
- - `getpeername()`
- - `getsockname()`
- - `getnameinfo()`
+ - `udp(7)`
+ - `ip(7)`
+ - `ipv6(7)`
+ - `socket(2)`, `socket(7)`
+ - `send(2)`
+ - `recv(2)`
+ - `bind(2)`
+ - `getaddrinfo(3)`
+ - `htons(3)`
+ - `ntohs(3)`
+ - `getsockname(2)`
+ - `getnameinfo(3)`
 
 
 # Instructions
@@ -245,7 +243,7 @@ See the [sockets homework assignment](../hw-sockets) for example code.
 A note about the `local_addr` and `remote_addr` variables.  The functions
 `sendto()`, `recvfrom()`, and `bind()` take type `struct sockaddr *`
 as an argument, rather than `struct sockaddr_in *` or `struct sockaddr_in6 *`.
-Per the `bind()` man page: "The only purpose of this structure is to cast the
+Per the `bind(2)` man page: "The only purpose of this structure is to cast the
 structure pointer passed in addr in order to avoid compiler warnings." In
 essence, this structure makes it so that `bind()` (and the other functions) can
 have a single definition that supports both IPv4 and IPv6.  As long as the
@@ -533,9 +531,9 @@ function.  The following tips associated with `bind()` are not specific to UDP
 sockets (type `SOCK_DGRAM`) but are nonetheless useful for this lab:
 
  - The local address and port can be associated with a socket using `bind()`.
-   See the man pages for `udp` and `bind()`.
+   See the man pages for `udp(7)` and `bind(2)`.
  - `bind()` can only be called *once* on a socket.  See the man page for
-   `bind()`.
+   `bind(2)`.
  - Even if `bind()` has *not* been called on a socket, if a local address and
    port have been associated with the socket implicitly (i.e., when `write()`,
    `send()`, or `sendto()` is called on that socket), `bind()` cannot be called
@@ -737,7 +735,7 @@ an arbitrary memory location (in this case an array of `unsigned char`) in
 network byte order.  You will need to use this principle to figure out how to
 do similar conversions for other cirumstances, including working with integers
 other than `unsigned short` and extracting integers of various lengths from
-arrays of `unsigned char`.  Hint: see the man page for `ntohs()` for related
+arrays of `unsigned char`.  Hint: see the man page for `ntohs(3)` for related
 functions.
 
 
@@ -786,10 +784,10 @@ For this lab, all communications between client and server are over UDP (type
 manipulation:
 
  - Sending every message requires exactly one call to `write()`, `send()`, or
-   `sendto()`.  See the man page for `udp`.
+   `sendto()`.  See the man page for `udp(7)`.
  - Receiving every message requires exactly one call to `read()`, `recv()`, or
    `recvfrom()`.  In some cases (e.g., op-code 3) `recvfrom()` _must_ be used.
-   See the man page for `udp`.
+   See the man page for `udp(7)`.
  - When 0 is returned by a call to `read()` or `recv()` on a socket of type
    `SOCK_DGRAM`, it simply means that there was no data/payload in the datagram
    (i.e., it was an "empty envelope").  See "RETURN VALUE" in the `recv()` man
@@ -805,7 +803,7 @@ manipulation:
    However, for this lab, it is much easier to just use `sendto()` every time
    over using `connect()` because of all the changing ports.
  - `sendto()` can be used to override the remote address and port associated
-   with the socket.  See the man page for `udp`.
+   with the socket.  See the man page for `udp(7)`.
 
 
 ## Testing Servers

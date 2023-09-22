@@ -150,7 +150,7 @@ grep bar somefile.txt
 Then run:
 
 ```bash
-grep bar somefile.txt | awk ' { print $8 }'
+grep bar somefile.txt | awk '{ print $8 }'
 ```
 
 Finally, when that is working, run the whole thing:
@@ -167,7 +167,7 @@ grep bar somefile.txt | awk '{ print $8 }' | base64 -d
  - To suspend the pipeline currently running in the foreground, use `ctrl`+`z`.
    Use `fg` to resume.  For more information, See the sections on
    `REDIRECTION`, `Pipelines` (under `SHELL GRAMMAR`), and `JOB CONTROL` in the
-   `bash` man page.
+   `bash(1)` man page.
  - Where a pipelined command begins with a command that can receive input from
    standard input, and the initial input is a file, one way of doing it is to
    use `<` to open the file and send it to the standard input of the first
@@ -223,7 +223,7 @@ grep bar somefile.txt | awk '{ print $8 }' | base64 -d
    respectively.  You can try them out with different domain names, types, or
    URLs, to see how they work, but you shouldn't need to do anything fancy with
    them for this assignment.  You will find the `+short` option useful for
-   `dig`.  For example:
+   `dig`.  For example, to query for the `A` record for `example.com` use:
    ```bash
    dig +short example.com A
    ```

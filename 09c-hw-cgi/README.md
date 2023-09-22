@@ -19,7 +19,7 @@ using `fork()` and `execve()`.  Your program should do the following:
  - Finish sending the headers for the HTTP response to the client.  The Web
    server will have sent the first line of the response and some headers.  Your
    program should send the headers indicating the type of the content (which
-   will be "text/plain" and the length of the content, which is just the length
+   will be "text/plain") and the length of the content, which is just the length
    (in bytes) of the entire response body.  For example:
 
    ```

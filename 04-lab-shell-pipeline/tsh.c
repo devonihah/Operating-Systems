@@ -95,14 +95,9 @@ int main(int argc, char **argv)
 /* 
  * eval - Evaluate the command line that the user has just typed in
  * 
- * If the user has requested a built-in command (e.g., "quit")
- * then execute it immediately.
- *
- * Otherwise, build a pipeline of commands
- * run the job in the context of the child.  Have the parent wait for child process to complete and then return.  Note:
- * each child process must have a unique process group ID so that our
- * background children don't receive SIGINT (SIGTSTP) from the kernel
- * when we type ctrl-c (ctrl-z) at the keyboard.  
+ * If the user has requested a built-in command (quit) then execute it
+ * immediately. Otherwise, build a pipeline of commands and wait for all of
+ * them to complete before returning.
 */
 void eval(char *cmdline) 
 {
