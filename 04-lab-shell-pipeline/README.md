@@ -366,8 +366,7 @@ the process is:
 
      <img src="redirection.png" width="800">
 
-     In particular, _only_ file descriptors 0, 1, and 2 are left open in the
-     child process.  File descriptor 1 (standard output) references the file
+     In this example, file descriptor 1 (standard output) references the file
      description associated with the newly opened file, while file descriptors
      0 and 2 still reference file descriptions associated with the terminal.
      All other file descriptors have been closed, but only _after_ they were
@@ -443,19 +442,18 @@ Thus, the process is:
 
      <img src="pipeline-2cmds.png" width="800">
 
-     In particular, _only_ file descriptors 0, 1, and 2 are left open in each
-     of the two child processes.  In the first child process, descriptor 0
-     (standard input) references the file description associated with the newly
-     opened file (for reading), file descriptor 1 (standard output) references
-     the file description associated with the write end of the pipe, and file
-     descriptor 2 still references the file description associated with the
-     terminal.  In the second child process, descriptor 0 references the file
-     description associated with the read end of the pipe, descriptor 1
-     references the file description associated with the newly opened file (for
-     writing), and file descriptor 2 still references the file description
-     associated with the terminal.  All other file descriptors have been
-     closed, but only _after_ they were duplicated onto the appropriate
-     descriptors -- whether standard input or standard output.
+     This example can be described as follows. In the first child process,
+     descriptor 0 (standard input) references the file description associated
+     with the newly opened file (for reading), file descriptor 1 (standard
+     output) references the file description associated with the write end of
+     the pipe, and file descriptor 2 still references the file description
+     associated with the terminal.  In the second child process, descriptor 0
+     references the file description associated with the read end of the pipe,
+     descriptor 1 references the file description associated with the newly
+     opened file (for writing), and file descriptor 2 still references the
+     file description associated with the terminal.  All other file
+     descriptors have been closed, but only _after_ they were duplicated onto
+     the appropriate descriptors -- whether standard input or standard output.
 
      Remember that when multiple file descriptors are referencing the same
      system-wide file description entry (e.g., after a call to `fork()` or
