@@ -101,7 +101,17 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-    return;
+	printf("You entered %s\n", cmdline);
+	char **argv = (char**)malloc(4 * sizeof(char*));
+	parseline(cmdline, argv);
+	int *cmds = (int*)malloc(sizeof(int));
+	int *stdin_redir = (int*)malloc(sizeof(int));
+		int *stdout_redir = (int*)malloc(sizeof(int));
+	parseargs(argv, cmds, stdin_redir, stdout_redir);
+	if (builtin_cmd(argv) == 0) {
+		//start processing commands	
+	}
+    	return;
 }
 
 /* 
@@ -228,7 +238,13 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-    return 0;     /* not a builtin command */
+	char* quit = "quit";
+	printf("Input: %s\n", argv[0]);
+	printf("Quit: %s\n", quit);
+	if (strcmp(argv[0], quit) == 0) {
+		exit(0);
+	}
+    	return 0;     /* not a builtin command */
 }
 
 /***********************
