@@ -26,8 +26,21 @@ int main(int argc, char *argv[]) {
 	// this one and, more importantly, to the child.
 	sigaction(SIGINT, &sigact, NULL);
 
+	//Signal Numbers
+	//1 SIGHUP
+	//2 SIGINT
+	//3 SIGQUIT
+	//4 SIGILL
+	//5 SIGTRAP
+	//6 SIGIOT
+	//7 SIGBUS
+	//8 SIGFPE
+	//9 SIGKILL
+
 	switch (scenario[0]) {
 	case '0':
+		kill(pid, SIGTERM);
+		sleep(1);
 		break;
 	case '1':
 		break;

@@ -11,12 +11,14 @@
 int foo;
 int block;
 
+// 1: prints 1, sleeps for 4, prints 2
 void sig_handler1(int signum) {
 	printf("1\n"); fflush(stdout);
 	sleep(4);
 	printf("2\n"); fflush(stdout);
 }
 
+// 2: prints 8, kills sigint, sleeps for 4, prints 9
 void sig_handler2(int signum) {
 	printf("8\n"); fflush(stdout);
 	kill(getpid(), SIGINT);
@@ -24,16 +26,21 @@ void sig_handler2(int signum) {
 	printf("9\n"); fflush(stdout);
 }
 
+// 3: prints the value of foo
 void sig_handler3(int signum) {
+	//sigact.sa_handler = sighandler3;
+	//sigaction(SIGTERM, &sigact, NULL);
 	printf("%d\n", foo); fflush(stdout);
 }
 
+// 4: prints 6 if foo is greater than 0
 void sig_handler4(int signum) {
 	if (foo > 0) {
 		foo = 6;
 	}
 }
 
+// 5: forks and sets foo equal to fork, if it's the child it exits after seven
 void sig_handler5(int signum) {
 	foo = fork();
 	if (foo == 0) {
@@ -41,6 +48,9 @@ void sig_handler5(int signum) {
 	}
 }
 
+// 6: waits for any child process to change state or check statuses
+// if no child has exited it returns 0, otherwise it returns errno
+// ECHILD = 10 which is no child processes  EINTR = 4 interrupted system ca;;
 void sig_handler6(int signum) {
 	int pid, status;
 	pid = waitpid(-1, &status, WNOHANG);
@@ -49,6 +59,7 @@ void sig_handler6(int signum) {
 	}
 }
 
+// 7: if block is greater than 0, make it 0, otherwise make it 1
 void sig_handler7(int signum) {
 	if (block) {
 		block = 0;
@@ -57,6 +68,8 @@ void sig_handler7(int signum) {
 	}
 }
 
+// 8: when the program receives a sigterm signal, it terminates and restarts any
+// system calls automatically that were interrupted
 void sig_handler8(int signum) {
 	struct sigaction sigact;
 
@@ -65,6 +78,7 @@ void sig_handler8(int signum) {
 	sigaction(SIGTERM, &sigact, NULL);
 }
 
+// 9: wait for the termination of a child process, then print exit status of the child
 void sig_handler9(int signum) {
 	int status;
 	waitpid(-1, &status, 0);
