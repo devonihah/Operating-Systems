@@ -27,38 +27,111 @@ int main(int argc, char *argv[]) {
 	sigaction(SIGINT, &sigact, NULL);
 
 	//Signal Numbers
-	//1 SIGHUP
-	//2 SIGINT
-	//3 SIGQUIT
-	//4 SIGILL
-	//5 SIGTRAP
-	//6 SIGIOT
-	//7 SIGBUS
-	//8 SIGFPE
-	//9 SIGKILL
+	//1 SIGHUP SIGINT
+	//2 SIGQUIT
+	//3 SIGTERM
+	//4 SIGUSR1 SIGUSr2
+	//5 10
+	//6 16
+	//7 31
+	//8 12
+	//9 SIGCHLD
 
 	switch (scenario[0]) {
 	case '0':
-		kill(pid, SIGTERM);
+		kill(pid, SIGHUP);
 		sleep(1);
 		break;
 	case '1':
-		break;
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
 	case '2':
+		kill(pid, SIGHUP);
+		sleep(1);
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
 		break;
 	case '3':
+		kill(pid, SIGHUP);
+		sleep(1);
+		kill(pid, SIGHUP);
+		sleep(5);
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
 		break;
 	case '4':
+		kill(pid, SIGHUP);
+		sleep(2);
+		kill(pid, SIGINT);
+		sleep(7);
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
 		break;
 	case '5':
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGHUP);
+		sleep(1);
+		kill(pid, SIGTRAP);
+		sleep(1);
 		break;
 	case '6':
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGHUP);
+		sleep(5);
+		kill(pid, 10);
+		sleep(1);
+		kill(pid, 16);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
 		break;
 	case '7':
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGHUP);
+		sleep(5);
+		kill(pid, 10);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
 		break;
 	case '8':
+		kill(pid, SIGHUP);
+		sleep(5);
+		kill(pid, 31);
+		sleep(1);
+		kill(pid, 10);
+		sleep(1);
+		kill(pid, 30);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
 		break;
-	case '9': 
+	case '9':
+		kill(pid, 31);
+		sleep(1);
+		kill(pid, SIGQUIT);
+		sleep(5);
+		kill(pid, 31);
+		sleep(5);
+		kill(pid, 12);
+		sleep(1);
+		kill(pid, SIGTERM);
+		sleep(1);
 		break;
 
 	}
