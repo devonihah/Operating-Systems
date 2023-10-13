@@ -7,6 +7,19 @@ operating systems like Linux.  This shell will read commands from standard
 input and run the programs specified in those commands.  It will also support
 multiple jobs.
 
+
+# Maintain Your Repository
+
+ Before beginning:
+ - [Mirror the class repository](../01a-hw-private-repo-mirror), if you haven't
+   already.
+ - [Merge upstream changes](../01a-hw-private-repo-mirror#update-your-mirrored-repository-from-the-upstream)
+   into your private repository.
+
+ As you complete the assignment:
+ - [Commit changes to your private repository](../01a-hw-private-repo-mirror#commit-and-push-local-changes-to-your-private-repo).
+
+
 # Table of Contents
 
 - [Getting Started](#getting-started)
@@ -839,7 +852,7 @@ Tests 1 - 8, 11 - 12, and 16 should work at this point.
 
 ## `do_bgfg()`
 
-`do_bgfg()` is called by `[eval()](#eval)` when a command starting with `bg` or
+`do_bgfg()` is called by `builtin_cmd()` when a command starting with `bg` or
 `fg` is entered at the command line.  It takes the following as an argument:
 
  - `char **argv` - an array of strings representing a command and its arguments

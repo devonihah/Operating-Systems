@@ -6,6 +6,18 @@ part of the I/O multiplexing concurrency paradigm.  You will learn these
 concepts by building a working HTTP proxy server that uses epoll.
 
 
+# Maintain Your Repository
+
+ Before beginning:
+ - [Mirror the class repository](../01a-hw-private-repo-mirror), if you haven't
+   already.
+ - [Merge upstream changes](../01a-hw-private-repo-mirror#update-your-mirrored-repository-from-the-upstream)
+   into your private repository.
+
+ As you complete the assignment:
+ - [Commit changes to your private repository](../01a-hw-private-repo-mirror#commit-and-push-local-changes-to-your-private-repo).
+
+
 # Table of Contents
 
 

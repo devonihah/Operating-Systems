@@ -7,6 +7,18 @@ then modify it to work for `SOCK_STREAM` (TCP), so you become familiar with
 both communication types.
 
 
+# Maintain Your Repository
+
+ Before beginning:
+ - [Mirror the class repository](../01a-hw-private-repo-mirror), if you haven't
+   already.
+ - [Merge upstream changes](../01a-hw-private-repo-mirror#update-your-mirrored-repository-from-the-upstream)
+   into your private repository.
+
+ As you complete the assignment:
+ - [Commit changes to your private repository](../01a-hw-private-repo-mirror#commit-and-push-local-changes-to-your-private-repo).
+
+
 # Preparation
 
  1. Read the following in preparation for this assignment:
@@ -29,13 +41,15 @@ both communication types.
     assignment.  Reviewing the principles on strings and I/O will greatly help
     you in this assignment!
 
- 4. Log on to a BYU CS lab workstation directly, or log on remotely via SSH
-    using the following command:
+ 4. Either log on to a BYU CS lab workstation directly or log on remotely using
+    SSH.  To log in using `ssh`, open a terminal and use the following `ssh`
+    command:
+
+    (Replace "username" with your actual CS username)
 
     ```bash
     ssh username@schizo.cs.byu.edu
     ```
-    (Replace "username" with your actual CS username)
 
     The exercises in this assignment will only work if run from a CS lab
     machine.
@@ -52,14 +66,18 @@ both communication types.
     ```
 
  6. On the left "remote" pane, use SSH to remotely log on to a CS lab machine
-    _different_ from the one you are already on.  (see a list of machine names
-    [here](https://docs.cs.byu.edu/doku.php?id=open-lab-layout)):
+    _different_ from the one you are already on.  See a list of machine names
+    [here](https://docs.cs.byu.edu/doku.php?id=open-lab-layout):
+
+    Fall 2023 Note: At the moment, only machines within the "Cities" and
+    "Marvel" labs appear to be reliable choices.
+
+    (Replace "username" with your actual CS username and "hostname" with the
+    name of the host to which you wish to log on.)
 
     ```bash
     ssh username@hostname
     ```
-    (Replace "username" with your actual CS username and "hostname" with the
-    name of the host to which you wish to log on.)
 
 
 # Part 1: UDP Sockets
@@ -81,12 +99,12 @@ server side, using the `client` and `server` programs, respectively.
 
 In the left "remote" pane, run the the following command:
 
+(Replace `port` with a port of your choosing, an integer between 1024 and
+65535.  Use of ports with values less than 1024 require root privileges).
+
 ```bash
 ./server -4 port
 ```
-
-(Replace `port` with a port of your choosing, an integer between 1024 and
-65535.  Use of ports with values less than 1023 require root privileges).
 
 The `-4` forces the server to prepare the socket to receive incoming messages
 only on its IPv4 addresses.  While it is possible to have a program listen on
@@ -112,12 +130,12 @@ as before.  While your server is again blocking, at least you can see _where_!
 Now, let's run the client to create some interaction between client and server.
 In the right "local" pane, run the following:
 
+(Replace `hostname` and `port` with name of the remote host and the port on
+which the server program is now listening, respectively.)
+
 ```bash
 ./client -4 hostname port foo bar abc123
 ```
-
-(Replace `hostname` and `port` with name of the "remote" host and the port on
-which the server program is now listening, respectively.)
 
 The `-4` forces the client to prepare the socket to send messages to the
 server's IPv4 address only.  Remember the server is listening on its IPv4
@@ -152,9 +170,10 @@ on the socket used by the client.  Modify `client.c` in the following ways:
  - Comment out the line of code containing the call to `write()`.  You will
    uncomment it later.
  - Replace the call to `write()` with a call to `sendto()`.  The new line of
-   code will look nearly identical to the one you just commented out, except
-   that `sendto()` allows you to specify the recipient (remote IP address and
+   code will look similar to the one you just commented out, except that
+   `sendto()` allows you to specify the recipient (remote IP address and
    port), which is necessary if `connect()` has not been called on the socket.
+   See the usage of `connect()` to add the remote IP address and port.
 
 Re-run `make` to rebuild both binaries.  Interrupt and restart the server in
 the left "remote" pane.
@@ -205,7 +224,7 @@ server echoes back our message, we can use string operations on it--but only
 because we know that it contains the null character that we included when we
 sent the message.
 
-Now take note of how the number of calls to `send()` on the client relates to
+Now take note of how the number of calls to `sendto()` on the client relates to
 the number of `recvfrom()` calls on the server.  Let's make some modifications
 to both client and server code to better understand what is going on:
 
@@ -215,7 +234,7 @@ to both client and server code to better understand what is going on:
    - Remove the `printf()` statements that you added earlier around the
      `recvfrom()` statement.
  - Modify `client.c`:
-   - Remove the lines following `sendto()`, beginning with `getsockname()` and
+   - Remove the lines following `sendto()` beginning with `getsockname()` and
      ending with `fprintf()`, which you added previously.
    - Comment out the code that calls `read()` and `printf()`, such that it does
      not attempt to read from the socket or print what it read after writing
@@ -234,8 +253,8 @@ With the server running on the remote host, execute (again) the client command
 you ran previously in the right "local" pane, sending the same strings as
 before.
 
- 8. *How many _total_ calls to `send()` / `sendto()` / `write()` were made by
-    the client?* Hint: refer to `client.c`.
+ 8. *How many _total_ calls to `sendto()` were made by the client?* Hint: refer
+    to `client.c`.
  9. *How many messages were received by the kernel of the server-side process
     _before_ the server called `recvfrom()` the second time (i.e., _between_
     the server's first and second calls to `recvfrom()`)?*  You can assume that
@@ -295,7 +314,7 @@ Make the following modifications:
      of `write()`.
 
  - Modify `server.c`:
-   - Make the server socket use TCP instead of UDP.
+   - Make the server socket of TCP (`SOCK_STREAM`) instead of UDP.
    - Wrap the entire `for` loop (i.e., `for (;;)`) in _another_ `for` loop with
      the same conditions (i.e., `for (;;)`).
    - Immediately before the _outer_ `for` loop, call the `listen()` function on
@@ -337,13 +356,13 @@ the left "remote" pane.
 
 Now run the following command twice:
 
+(Replace `hostname` and `port` with name of the "remote" host and the port
+on which the server program is now listening, respectively.)
+
 ```bash
 ./client -4 hostname port foo bar abc123
 ./client -4 hostname port foo bar abc123
 ```
-
-(Replace `hostname` and `port` with name of the "remote" host and the port
-on which the server program is now listening, respectively.)
 
  16. The server prints out the _remote_ address and port associated with the
      incoming message, and the client prints out the _local_ address and port
@@ -415,25 +434,40 @@ Restore the value of the `len` argument passed to `recvfrom()` in `server.c` to
 
 ## Part 3: Making Your Client Issue HTTP Requests
 
-Modify `client.c` such that instead of looping through each command-line
-argument and writing it to the socket, it does the following, immediately after
-the socket connection is established:
+In the next steps, you will be modifying the client program, so that it reads
+data from standard input and sends that data over a socket.  The data is an
+HTTP request, and the socket will be connected to an HTTP server.  Thus, your
+client will effectively become a very simple HTTP client.
 
- - Write a loop to read (using `fread()`) input from standard input (`stdin`)
-   into a buffer (`char []`) until EOF is reached (max total bytes 4096).  You
-   can designate a specific "chunk" size (e.g., 512 bytes) to read from the
-   file with each loop iteration.
- - Keep track of the bytes that were read from `stdin` during each iteration
-   and in total.  Hint: see the return value of `fread()`.  With each iteration
-   of the loop, you will want to offset the buffer (the one to which you are
-   writing data read from `stdin`) by the number of total bytes read, so the
-   bytes read from `stdin` are placed in the buffer immediately following the
-   previous bytes read.
- - After _all_ the data has been read from `stdin` (i.e., EOF has been
-   reached), loop to send all the data that was received (i.e., the bytes you
-   just stored in the buffer), until it has all been sent.  You can designate a
-   specific message size (e.g., 512 bytes) to send with each loop iteration.
-   You can use `write()` or `send()` to send the bytes.
+Before you begin modifications, make a copy of the TCP version of your client
+program:
+
+```bash
+cp client.c client-tcp.c
+```
+
+Remove the code in `client.c` that loops through command-line arguments and
+writes each to the socket.  Replace it using the following instructions. These
+should take place should take place immediately after the socket connection is
+established--that is, after breaking out of the loop that uses `connect()` to
+establish a connection with the remote side.
+
+ - Write a loop to read (using `read()`) input from standard input
+   (`STDIN_FILENO` or 0) into an array of type `unsigned char` until EOF is
+   reached (max total bytes 4096).  You can designate a specific "chunk" size
+   (e.g., 512 bytes) to read from the file with each loop iteration.
+ - Keep track of the number of bytes that were read from standard input during
+   each iteration and in total.  Hint: see the return value of `read()`.  With
+   each iteration of the loop, you will want to offset the buffer (the one to
+   which you are writing data read from standard input) by the number of total
+   bytes read, so the bytes read are placed in the buffer immediately following
+   bytes previously read.
+ - After _all_ the data has been read from standard input (i.e., EOF has been
+   reached), write another loop to send all the data that was received (i.e.,
+   the bytes you just stored in the buffer) to the connected socket, until it
+   has all been sent.  You can designate a specific message size (e.g., 512
+   bytes) to send with each loop iteration.  You can use `write()` or `send()`
+   to send the bytes.
 
    Note that `write()` / `send()` will return the number of bytes actually
    sent, which might be less than the number you requested to be sent (see the
@@ -444,14 +478,17 @@ the socket connection is established:
 In the left "remote" pane, start a netcat (`nc` command) server listening
 for incoming TCP connections on a port of your choosing:
 
+(Replace `port` with a port of your choosing.)
+
 ```bash
 nc -l port
 ```
 
-(Replace `port` with a port of your choosing.)
-
 Now test your client program by running the following in the right "local"
 pane:
+
+(Replace `hostname` and `port` with name of the remote host and the port on
+which the `nc` program is now listening, respectively.)
 
 ```bash
 ./client -4 hostname port < alpha.txt
@@ -482,19 +519,19 @@ Then re-run the client program:
 
 Modify `client.c`:
 
- - After _all_ the data read from `stdin` has been sent to the socket, write
-   another loop to read (using `read()` or `recv()`) from the socket into a
-   buffer (`char []`) until the remote host closes its socket--that is, the
-   return value from `read()` / `recv()` is 0 (note that this is, effectively,
-   EOF).  The maximum _total_ bytes that you will read fom the socket is 16384.
-   You can designate a specific "chunk" size (e.g., 512 bytes) to read from the
-   socket with each loop iteration.
+ - After _all_ the data read from standard input has been sent to the socket,
+   write another loop to read (using `read()` or `recv()`) from the socket into
+   a buffer (`unsigned char []`) until the remote host closes its socket--that
+   is, the return value from `read()` / `recv()` is 0 (note that this is,
+   effectively, EOF).  The maximum _total_ bytes that you will read fom the
+   socket is 16384.  You can designate a specific "chunk" size (e.g., 512
+   bytes) to read from the socket with each loop iteration.
  - Keep track of the bytes that were read from the socket during each iteration
-   and in total.  Hint: see the return value of `read()` / `recv()`.  With each
-   iteration of the loop, you will want to offset the buffer (the one to which
-   you are writing data read from the socket) by the number of total bytes
-   read, so the bytes read from the socket are placed in the buffer immediately
-   following the previous bytes read.
+   and in total.  Hint: see the return value of `read()`.  With each iteration
+   of the loop, you will want to offset the buffer (the one to which you are
+   writing data read from the socket) by the number of total bytes read, so the
+   bytes read are placed in the buffer immediately following bytes previously
+   read.
  - After _all_ the data has been read from the socket (the remote host has
    closed its socket), write the contents of the buffer to standard output.
    The data received on the socket will not necessarily be a string--i.e.,
@@ -502,21 +539,22 @@ Modify `client.c`:
    movie, an executable, or something else. Therefore, you should not use
    `printf()` or any other string operators unless you _know_ it is a string
    (see the [Strings, I/O, and Environment](../hw-strings-io-env#printf-and-friends)
-   assignment).  Alternatives are `write()` and `fwrite()`.
+   assignment).  Instead, use `write()`.
 
    Even in the case where you _know_ bytes read from the socket are printable
    characters, if you want to perform any string operations, then you will need
    to add the null byte explicitly yourself.
 
-Now, execute your client program such that:
+Use `cat` to show the contents of `http-bestill.txt`.  This file contains a
+real HTTP request that your client will read from standard input and send to a
+real Web server.  For it to do this, execute your client program such that:
  - you are sending data to the standard HTTP port (80) at
    www-notls.imaal.byu.edu;
  - you are redirecting the contents of `http-bestill.txt` to the standard input
    of the client process (using input redirection on the shell); and
  - you are redirecting the output of your client process to `bestill.txt`.
 
-Use `cat` to show the contents of `http-bestill.txt`.  You should recognize the
-format as an HTTP request.  Your program is now doing the following:
+Your program is now doing the following:
  1. Reading content from the file `http-bestill.txt` (redirected to standard
     input), which happens to be an HTTP request;
  2. Sending the request to an HTTP server;
@@ -524,7 +562,7 @@ format as an HTTP request.  Your program is now doing the following:
  4. Writing the response to `bestill.txt` (to which standard output has been
     redirected).
 
-In essence, your client program is acting as a _very_ simple HTTP client.
+In essence, your client program is now acting as a _very_ simple HTTP client.
 
 Note that after you have run your program, `bestill.txt` should contain:
  - the HTTP response code (200);

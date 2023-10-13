@@ -8,6 +8,19 @@ in operating systems like Linux.  This shell will read commands from standard
 input and run the programs specified in those commands.  It will also redirect
 output to files and to other programs in a pipeline.
 
+
+# Maintain Your Repository
+
+ Before beginning:
+ - [Mirror the class repository](../01a-hw-private-repo-mirror), if you haven't
+   already.
+ - [Merge upstream changes](../01a-hw-private-repo-mirror#update-your-mirrored-repository-from-the-upstream)
+   into your private repository.
+
+ As you complete the assignment:
+ - [Commit changes to your private repository](../01a-hw-private-repo-mirror#commit-and-push-local-changes-to-your-private-repo).
+
+
 # Table of Contents
 - [Getting Started](#getting-started)
   - [Reading](#reading)

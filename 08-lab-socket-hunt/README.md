@@ -4,6 +4,19 @@ The purpose of this assignment is to help you become more familiar with the
 concepts associated with sockets, including UDP communications, local and
 remote port assignment, IPv4 and IPv6, message parsing, and more.
 
+
+# Maintain Your Repository
+
+ Before beginning:
+ - [Mirror the class repository](../01a-hw-private-repo-mirror), if you haven't
+   already.
+ - [Merge upstream changes](../01a-hw-private-repo-mirror#update-your-mirrored-repository-from-the-upstream)
+   into your private repository.
+
+ As you complete the assignment:
+ - [Commit changes to your private repository](../01a-hw-private-repo-mirror#commit-and-push-local-changes-to-your-private-repo).
+
+
 # Table of Contents
 
  - [Overview](#overview)
@@ -811,18 +824,18 @@ manipulation:
 The following domain names and ports correspond to the servers where the games
 might be initiated:
 
- - canada:32400
- - cambodia:32400
- - belgium:32400
- - australia:32400
- - atlanta:32400
+ - falcon:32400
+ - groot:32400
+ - hawkeye:32400
  - houston:32400
- - hongkong:32400
- - lasvegas:32400
- - carolina:32400
- - alaska:32400
- - arizona:32400
- - hawaii:32400
+ - hulk:32400
+ - jakarta:32400
+ - london:32400
+ - montreal:32400
+ - nyc:32400
+ - paris:32400
+ - rogers:32400
+ - wanda:32400
 
 Note that communicating with any server should result the same behavior.
 However, to balance the load and to avoid servers that might be down for one
