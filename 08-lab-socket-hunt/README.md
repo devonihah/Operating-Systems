@@ -34,6 +34,7 @@ remote port assignment, IPv4 and IPv6, message parsing, and more.
    - [Op Codes](#op-codes)
    - [UDP Socket Behaviors](#udp-socket-behaviors)
    - [Testing Servers](#testing-servers)
+   - [Logs](#logs)
  - [Automated Testing](#automated-testing)
  - [Evaluation](#evaluation)
  - [Submission](#submission)
@@ -81,14 +82,17 @@ two functions and one `#define` statement.
 
 Replace `PUT_USERID_HERE` with your numerical user ID, which you can find by
 running `id -u` on a CS lab machine.  From now on you can use `USERID` as an
-integer wherever you need to use your user ID in the code.
+integer literal wherever you need to use your user ID in the code.  Note that
+`USERID` is not a variable.
 
 Now take a look the `print_bytes()` function.  This function was created to
 help you see what is in a given message that is about to be sent or has just
 been received.  It is called by providing a pointer to a memory location, e.g.,
 an array of `unsigned char`, and a length.  It then prints the hexadecimal
 value for each byte, as well as the ASCII character equivalent for values less
-than 128 (see `man ascii`).
+than 128 (see `man ascii`).  Note that it is very similar to the `memprint()`
+function provided in the
+[Strings, I/O, and Environment](../01d-hw-strings-io-env) assignment.
 
 
 ### Command-Line Arguments
@@ -105,10 +109,13 @@ Your program should have the following usage:
  - `seed`: an integer used to initialize the pseudo-random number generator on
    the server.
 
-Store each of the arguments provided on the command line in variables.  Note
-that `port`, `level`, and `seed` are all integers, so you will want to convert
-them to integers. However, because `getaddrinfo()` takes a `char *` for port,
-you might want to maintain a string (`char []`) version of the port as well.
+Store each of the arguments provided on the command line (i.e., the `argv`
+argument to `main()`) in variables.  Note that `port`, `level`, and `seed` are
+numerical values and should ultimately be stored as variables of type `int`.
+Because they will be received as strings from the command line (type `char *`),
+you will want to convert them to integers with `atoi()`.  However, because
+`getaddrinfo()` takes a `char *` for port, you might also want to maintain a
+string (`char []`) version of the port as well.
 
 It would be a good idea here to check that all command-line variables have been
 stored appropriately from the command line.  Create some print statements to
@@ -124,8 +131,17 @@ Then run it:
 ./treasure_hunter server 32400 0 7719
 ```
 
-Try running it with different values for server, port, level, and seed to make
-sure everything looks as it should.
+The output of your program should match the values of the arguments you
+provided on the command line.
+
+
+### Checkpoint 1
+
+Run `./treasure_hunter` with different values for server, port, level, and seed
+to make sure everything looks as it should when printed out.  If not, now is
+the time to fix it.
+
+Now would also be a good time to save and commit your work.
 
 
 ### Initial Request
@@ -170,8 +186,8 @@ longer than bytes.  Please take a moment to read the section on
 and some examples for building your message.
 
 Now call `print_bytes()`, specifying the message buffer that you have populated
-as the first argument and 8 as your second argument (i.e., because it should be
-an 8-byte message).
+as the first argument and 8 as your second argument (i.e., because your initial
+messages should be exactly 8 bytes).
 
 Re-build and run your file with the following:
 
@@ -181,33 +197,41 @@ make
 ```
 
 Check the `print_bytes()` output to make sure that the message you intend to
-send looks correct.  Bytes 0 and 1 should both be zero.  Bytes 2 through 5
-should have the value of your user ID in network byte order.  Bytes 6 and 7
-should have the value of your seed in network byte order.  For example assuming
-a user ID of 12345, the output would be:
+send looks correct.  For example, assuming a user ID of (decimal) 123456789,
+the output would be:
 
 ```bash
-$ ./treasure_hunter server 32400 0 7719
+$ ./treasure_hunter server 32400 1 7719
 
-00: 00 00 00 00  30 39 1E 27  . . . . 0 9 . '
+00: 00 01 07 5B  CD 15 1E 27  . . . [ . . . '
 ```
 
-Beyond the offset (`00:`), you can see the byte representing level 0 (`00`),
-the bytes representing the user ID (`00 00 30 39`), and the bytes representing
-the seed (`1E 27`).  Because this message is not "text", there are no useful
-ASCII representations of the byte values, so the output is mostly `.`.  Note
-that you can find the hexadecimal representation of your user ID, the seed, and
-any other integer, by running the following from the command line:
+To the right of the offset (`00:`) are the following: the byte at index 0,
+which should always have value 0 (`00`); the byte at index 1, which has value
+1, corresponding to level 1 (`01`); bytes 2 through 5, which represent the user
+ID 123456789 (`07 5B CD 15`); and bytes 6 and 7, which represent the seed
+(`1E 27`).  Because this message is not "text", there are no useful ASCII
+representations of the byte values, so the output on the right is mostly `.`.
+
+Note that you can find the hexadecimal representation of your user ID, the
+seed, and any other integer, by running the following from the command line:
+
+Substitute "123456789" with the integer--represented in decimal--that you wish
+you represent as hexadecimal.
 
 ```bash
-printf "%08x\n" 12345
+printf "%08x\n" 123456789
 ```
 
-substituting `12345` with the integer that you wish you represent as
-hexadecimal.
 
-If your message looks good, based on the output to `print_bytes()`, continue
-on!
+### Checkpoint 2
+
+Run `./treasure_hunter` with different values for server, port, level, and
+seed.  Use the `printf` command and the output of `print_bytes()` to verify
+that your initial request is being created properly.  If not, now is the time
+to fix it.
+
+Now would also be a good time to save and commit your work.
 
 Of course, you have not sent or received any messages at this point, but you
 now know how to *format* the initial message appropriately.
@@ -222,18 +246,25 @@ the second argument (`service`) to `getaddrinfo()` is type `char *`.  Thus, if
 you only have the port as an integer, then you should convert it (not cast
 it!).
 
-It is recommended that you _not_ call `connect()` on the socket but rather save
+_Do not call `connect()` on the socket!_  While `connect()` is useful for UDP
+(`SOCK_DGRAM`) communications in which the remote address and port will not
+change, later in this lab you will be _changing_ the remote address and port
+with which you are communicating.  `connect()` cannot be called more than once
+on a socket (see the man page for `connect(2)`), so you should instead use
+`sendto()` and `recvfrom()`.
+
+Since `sendto()` requires passing a remote address and port, you should save
 the value of the remote address set by `getaddrinfo()` into a
 `struct sockaddr_in` (or a `struct sockaddr_in6` for IPv6) that you have
 declared.  Additionally, because the kernel _implicitly_ assigns the local
 address and port to a given socket when none has been _explicitly_ assigned
-using `bind()`, you will find it useful to learn the port that has been
-assigned using `getsockname()` and save it to a `struct sockaddr_in` (or
-`struct sockaddr_in6` for IPv6) that you have declared.  Finally, you will find
-it useful to keep track of your address family and address length.  Note that
-for levels 0 through 3, your client will only use IPv4 (i.e., `AF_INET`), so
-these values will always be the same.  Nonetheless, keeping track of the
-address family and length is good practice, and you will find it useful in for
+using `bind()`, you should learn the port that has been assigned using
+`getsockname()` and save it to a `struct sockaddr_in` (or `struct sockaddr_in6`
+for IPv6) that you have declared.  Finally, you will find it useful to keep
+track of your address family and address length.  Note that for levels 0
+through 3, your client will only use IPv4 (i.e., `AF_INET`), so these values
+(address family and length) will always be the same.  Nonetheless, keeping
+track of them is good practice, and you will find it useful in for
 [level 4 (extra credit)](#level-4-extra-credit) when IPv6 is added.
 
 To keep track of all this, you might declare variables like the following:
@@ -251,10 +282,10 @@ To keep track of all this, you might declare variables like the following:
 	struct sockaddr *local_addr;
 ```
 
-See the [sockets homework assignment](../hw-sockets) for example code.
+See the [sockets homework assignment](../07-hw-sockets) for example code.
 
-A note about the `local_addr` and `remote_addr` variables.  The functions
-`sendto()`, `recvfrom()`, and `bind()` take type `struct sockaddr *`
+A note about the `local_addr` and `remote_addr` variables shown above.  The
+functions `sendto()`, `recvfrom()`, and `bind()` take type `struct sockaddr *`
 as an argument, rather than `struct sockaddr_in *` or `struct sockaddr_in6 *`.
 Per the `bind(2)` man page: "The only purpose of this structure is to cast the
 structure pointer passed in addr in order to avoid compiler warnings." In
@@ -269,9 +300,9 @@ address family being used, you can simply use `local_addr` in the calls to
 `bind()` and friends.
 
 When everything is set up, send your message using `sendto()`.  Then read the
-server's response with `recvfrom()` call.  Remember, it is just one call to
+server's response with a call to `recvfrom()` Remember, it is just one call to
 each!  Store the return value of  `recvfrom()`, which reflects the number of
-bytes you received.  Unlike the [initial request](#create-an-initial-request)
+bytes you received.  Unlike the [initial request](#initial-request)
 you sent, which is always eight bytes, the size of the response is variable
 (but will never be more than 256 bytes).  Finally, call `print_bytes()` to
 print out the contents of the message received by the server.
@@ -286,6 +317,13 @@ make
 At this point, you need to supply the name of an actual server. See
 [this section](#testing-servers) for a list of servers and ports that you may
 use.
+
+
+### Checkpoint 3
+
+All of the system calls (e.g., `socket()`, `sendto()`, `recvfrom()`) should be
+returning successfully.  If that is not the case, now is the time to fix it.
+Check the return value, and use `perror()` when a system call fails.
 
 
 ### Directions Response
@@ -344,10 +382,12 @@ The following is an explanation of each field:
 Extract the chunk length, the treasure chunk, the op-code, the op-param,
 and the nonce using the hints in the [message formatting](#message-formatting)
 section), storing them in variables of the appropriate types, so you can work
-with them.  Print them out to verify that you have extracted them properly, and
-pay attention to endian-ness.  For example, if you receive the nonce
-0x12345678, then printing out the value of the variable in which you have
-stored the nonce, e.g., with:
+with them.  For example, if a value has a length of one byte, then use an
+`unsigned char`, or if a value has a length of two bytes, use an
+`unsigned short`, etc. Print them out to verify that you have extracted them
+properly, and pay attention to endian-ness for variables that consume multiple
+bytes.  For example, if you receive the nonce 0x12345678, then printing out the
+value of the variable in which you have stored the nonce, e.g., with:
 
 ```c
 printf("%x", nonce);
@@ -359,13 +399,25 @@ should result in the following output:
 12345678
 ```
 
-Remember to add a null byte after the treasure chunk, or `printf()` will not
-know how to treat it properly.  Also, the op-param has no use for level 0, and
-the value might actually be 0.  This means that endian-ness is hard to check at
-this point.  But you can check it in future levels.
+Because the treasure chunk will consist of ASCII characters, it can be stored
+using a `char []`.  However, remember to add a null byte after the treasure
+chunk, or `printf()` will not know how to treat it properly.
+
+Also, the op-param has no use for level 0, and the value might actually be 0.
+This means that endian-ness for op-param is hard to check at this point.  But
+you can check it in future levels when the value is non-zero.
 
 You will be sending the nonce (well, a variant of it) back to the server, in
 exchange for additional chunks, until you have received the whole treasure.
+
+
+### Checkpoint 4
+
+Run `./treasure_hunter` against the same server and port as before but with
+different values for level and seed to make sure everything looks as it should
+when printed out.  If not, now is the time to fix it.
+
+Now would also be a good time to save and commit your work.
 
 
 ### Follow-Up Request
@@ -382,7 +434,7 @@ and will have the following format:
 
  - Bytes 0 - 3: an `unsigned int` having a value of one more than the nonce
    most recently sent by the server, in network byte order.  For example, if
-   the server previously sent 100, then this value would be 101.
+   the server previously sent 100 as the nonce, then this value would be 101.
 
 Build your follow-up request using the guidance in the
 [message formatting helps](#message-formatting) section, and use
@@ -398,15 +450,29 @@ If everything looks good, then use `sendto()` to send your follow-up request
 and `recvfrom()` to receive your next directions response.
 
 
+### Checkpoint 5
+
+Run `./treasure_hunter` against the same server and port, specifying level 0,
+but different values for seed.  Verify that the contents of your follow-up
+request match the value of the nonce sent by the server, plus one.  Also, check
+that the `sendto()` call returns successfully.  If that is not the case, now is
+the time to fix it.
+
+Now would also be a good time to save and commit your work.
+
+
 ### Program Output
 
 Now generalize the pattern of sending
 [follow-up requests](#follow-up-request) in response to
 [directions responses](#directions-response), receiving the entire treasure,
-one chunk at a time.  Add each new chunk received to the treasure you already
-have.  You will want to create a loop with the appropriate termination test
-indicating that the entire treasure has been received
-(i.e., [byte 0 has a value of 0](#directions-response)).
+one chunk at a time.  Append each new chunk received to the chunks you already
+have.  Remember to add a null byte after the characters comprising your
+total treasure, so you can use `printf()` with the treasure!
+
+You should create a loop whose termination test is whether or not the entire
+treasure has been received.  That is, you should break out of the loop when
+byte 0 of the directions response [has a value of 0](#directions-response)).
 
 The overall interaction is illustrated in the following image:
 
@@ -427,8 +493,7 @@ abcdefghij
 ```
 
 No treasure will be longer than 1,024 characters, so you may use that as your
-buffer size.  Remember to add a null byte after the characters comprising your
-output, so they can be used with `printf()`!
+buffer size.
 
 At this point, make sure that the treasure is the only program output.  Remove
 print statements that you have added to your code for debugging by commenting
@@ -436,7 +501,7 @@ them out or otherwise taking them out of the code flow (e.g., with
 `if (verbose)`).
 
 
-### Checkpoint 0
+### Checkpoint 6
 
 At this point, you can also test your work with
 [automated testing](#automated-testing).  Level 0 should work at this point.
@@ -518,7 +583,7 @@ Just as with level 0, have your code
 [collect all the chunks and printing the entire treasure to standard output](#program-output).
 
 
-### Checkpoint 1
+### Checkpoint 7
 
 At this point, you can also test your work with
 [automated testing](#automated-testing).  Levels 0 and 1 should both work at
@@ -550,7 +615,8 @@ sockets (type `SOCK_DGRAM`) but are nonetheless useful for this lab:
  - Even if `bind()` has *not* been called on a socket, if a local address and
    port have been associated with the socket implicitly (i.e., when `write()`,
    `send()`, or `sendto()` is called on that socket), `bind()` cannot be called
-   on that socket.
+   on that socket.  See the [sockets homework assignment](../07-hw-sockets) for
+   an example of when the local address and port are implicitly set.
 
 Therefore, every time the client is told to use a new local port (i.e., with
 op-code 2 in a directions response), _the current socket must be closed_, and a
@@ -573,7 +639,6 @@ run something like this to bind the newly-created socket to a specific port:
 	if (bind(sfd, local_addr, addr_len) < 0) {
 		perror("bind()");
 	}
-
 ```
 
 Note that this code prepares both `local_addr_in` and `local_addr_in6` with the
@@ -584,7 +649,7 @@ pointed to will matter.  However, there is no harm preparing both to avoid
 conditionals based on address family.
 
 
-### Checkpoint 2
+### Checkpoint 8
 
 At this point, you can also test your work with
 [automated testing](#automated-testing).  Levels 0 through 2 should all work
@@ -630,7 +695,7 @@ following to prepare the next directions request:
    the most recent directions response was received.
 
 
-### Checkpoint 3
+### Checkpoint 9
 
 At this point, you can also test your work with
 [automated testing](#automated-testing).  Levels 0 through 3 should all work
@@ -673,7 +738,7 @@ instances of `struct sockaddr *` to always point to the address structure
 associated with the appropriate address family, then this should "just work".
 
 
-### Checkpoint 4
+### Checkpoint 10
 
 At this point, you can also test your work with
 [automated testing](#automated-testing).  Levels 0 through 4 should all work
@@ -771,6 +836,8 @@ Any error codes sent by the server will be one of the following:
  - 136: A bad user id was sent the server on the initial request, such that a
    username could not be found on the system running the server.
  - 137: An unknown error occurred.
+ - 138: The message was sent using the wrong address family (i.e., IPv4 or
+   IPv6).
 
 
 ## Op-Codes
@@ -824,27 +891,35 @@ manipulation:
 The following domain names and ports correspond to the servers where the games
 might be initiated:
 
+ - alaska:32400
+ - arkansas:32400
+ - california:32400
+ - connecticut:32400
  - falcon:32400
+ - florida:32400
  - groot:32400
+ - hawaii:32400
  - hawkeye:32400
- - houston:32400
  - hulk:32400
- - jakarta:32400
- - london:32400
- - montreal:32400
- - nyc:32400
- - paris:32400
  - rogers:32400
  - wanda:32400
 
-Note that communicating with any server should result the same behavior.
-However, to balance the load and to avoid servers that might be down for one
-reason or another, we have created the following script, which will show
-both a status of servers the *primary* machine that *you* should use:
+Note that all servers provide exactly the same behavior.  However, to balance
+the load and to avoid servers that might be down for one reason or another, we
+have created the following script, which will show both a status of servers the
+*primary* machine that *you* should use:
 
 ```
 ./server_status.py
 ```
+
+
+## Logs
+
+All communications received by the servers are logged to files that are
+accessible to the TAs.  If you are having trouble tracking down the cause of
+faulty behavior, you may ask a TA to look for entries in the logs corresponding
+to your activity.
 
 
 # Automated Testing
@@ -871,7 +946,9 @@ _all_ levels.
 Your score will be computed out of a maximum of 100 points based on the
 following distribution:
 
- - 25 points for each of 4 levels (0 through 3)
+ - 5 points for compilation without warnings
+ - 50 points for passing level 0
+ - 15 points each for passing levels 1 through 3
  - For each level, 5 points for each seed:
    - 7719
    - 33833

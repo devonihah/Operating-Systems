@@ -1,14 +1,27 @@
+/*
+ * echoserverp.c - A concurrent echo server based on processes
+ */
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
+#include <signal.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
+#define MAXLINE 8192
 
-#define BUF_SIZE 500
+void echo(int connfd);
+
+void sigchld_handler(int sig) {
+	while (waitpid(-1, 0, WNOHANG) > 0);
+	return;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -36,10 +49,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	unsigned short port = atoi(argv[portindex]);
-	int sock_type = SOCK_DGRAM;
+	int sock_type = SOCK_STREAM;
 
-
-	/* SECTION A - populate address structures */
 
 	struct sockaddr_in ipv4addr;
 	struct sockaddr_in6 ipv6addr;
@@ -47,7 +58,7 @@ int main(int argc, char *argv[]) {
 	/* Variables associated with local address and port */
 	struct sockaddr *local_addr;
 	socklen_t addr_len;
-	
+
 	if (addr_fam == AF_INET) {
 		/* We are using IPv4. */
 		/* Populate ipv4addr with the appropriate family, address
@@ -76,8 +87,7 @@ int main(int argc, char *argv[]) {
 		addr_len = sizeof(ipv6addr);
 	}
 
-
-	/* SECTION B - setup socket */
+	signal(SIGCHLD, sigchld_handler);
 
 	int sfd;
 	if ((sfd = socket(addr_fam, sock_type, 0)) < -1) {
@@ -88,9 +98,11 @@ int main(int argc, char *argv[]) {
 		perror("Could not bind");
 		exit(EXIT_FAILURE);
 	}
+	if (listen(sfd, 100) < 0) {
+		perror("Could not listen");
+		exit(EXIT_FAILURE);
+	}
 
-
-	/* SECTION C - interact with clients; receive and send messages */
 
 	/* Variables associated with remote address and port */
 	struct sockaddr_in remote_addr_in;
@@ -105,17 +117,11 @@ int main(int argc, char *argv[]) {
 		remote_addr = (struct sockaddr *)&remote_addr_in6;
 	}
 
-	/* Read datagrams and echo them back to sender */
-	for (;;) {
-		char buf[BUF_SIZE];
-
+	while (1) {
 		/* addrlen needs to be initialized before the call to
 		 * recvfrom().  See the man page for recvfrom(). */
 		addr_len = sizeof(struct sockaddr_storage);
-		ssize_t nread = recvfrom(sfd, buf, BUF_SIZE, 0,
-				remote_addr, &addr_len);
-		if (nread == -1)
-			continue;   /* Ignore failed request */
+		int connfd = accept(sfd, remote_addr, &addr_len);
 
 		if (addr_fam == AF_INET) {
 			remote_addr_in = *(struct sockaddr_in *)remote_addr;
@@ -138,12 +144,15 @@ int main(int argc, char *argv[]) {
 			 * */
 			remote_port = ntohs(remote_addr_in6.sin6_port);
 		}
-		printf("Received %zd bytes from %s:%d\n",
-				nread, remote_addr_str, remote_port);
+		printf("Connection from %s:%d\n",
+				remote_addr_str, remote_port);
 
-		if (sendto(sfd, buf, nread, 0,
-					remote_addr,
-					addr_len) < 0)
-			fprintf(stderr, "Error sending response\n");
+		if (fork() == 0) {
+			close(sfd);
+			echo(connfd);
+			close(connfd);
+			exit(0);
+		}
+		close(connfd);
 	}
 }

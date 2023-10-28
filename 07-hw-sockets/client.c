@@ -10,30 +10,8 @@
 #define BUF_SIZE 500
 
 int main(int argc, char *argv[]) {
-	struct addrinfo hints;
-	struct addrinfo *result, *rp;
-	int sfd, s, j;
-	size_t len;
-	ssize_t nread;
-	char buf[BUF_SIZE];
-	int hostindex;
-	int af;
 
-	int addr_fam;
-	socklen_t addr_len;
-
-	struct sockaddr_in remote_addr_in;
-	struct sockaddr_in6 remote_addr_in6;
-	struct sockaddr *remote_addr;
-	char remote_addr_str[INET6_ADDRSTRLEN];
-	unsigned short remote_port;
-
-	struct sockaddr_in local_addr_in;
-	struct sockaddr_in6 local_addr_in6;
-	struct sockaddr *local_addr;
-	char local_addr_str[INET6_ADDRSTRLEN];
-	unsigned short local_port;
-
+	/* Check usage */
 	if (argc < 3 ||
 		((strcmp(argv[1], "-4") == 0 || strcmp(argv[1], "-6") == 0) &&
 			argc < 4)) {
@@ -44,7 +22,8 @@ int main(int argc, char *argv[]) {
 	/* Use only IPv4 (AF_INET) if -4 is specified;
 	 * Use only IPv6 (AF_INET6) if -6 is specified;
 	 * Try both if neither is specified. */
-	af = AF_UNSPEC;
+	int af = AF_UNSPEC;
+	int hostindex;
 	if (strcmp(argv[1], "-4") == 0 ||
 			strcmp(argv[1], "-6") == 0) {
 		if (strcmp(argv[1], "-6") == 0) {
@@ -59,6 +38,7 @@ int main(int argc, char *argv[]) {
 
 	/* Obtain address(es) matching host/port */
 
+	struct addrinfo hints;
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = af;    /* Allow IPv4, IPv6, or both, depending on
 				    what was specified on the command line. */
@@ -66,9 +46,13 @@ int main(int argc, char *argv[]) {
 	hints.ai_flags = 0;
 	hints.ai_protocol = 0;  /* Any protocol */
 
+
 	/* SECTION A - pre-socket setup; getaddrinfo() */
 
-	s = getaddrinfo(argv[hostindex], argv[hostindex + 1], &hints, &result);
+	struct addrinfo *result;
+	int s;
+	s = getaddrinfo(argv[hostindex],
+			argv[hostindex + 1], &hints, &result);
 	if (s != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
 		exit(EXIT_FAILURE);
@@ -79,8 +63,28 @@ int main(int argc, char *argv[]) {
 	   If socket(2) (or connect(2)) fails, we (close the socket
 	   and) try the next address. */
 
+
 	/* SECTION B - pre-socket setup; getaddrinfo() */
 
+	int sfd;
+	int addr_fam;
+	socklen_t addr_len;
+
+	/* Variables associated with remote address and port */
+	struct sockaddr_in remote_addr_in;
+	struct sockaddr_in6 remote_addr_in6;
+	struct sockaddr *remote_addr;
+	char remote_addr_str[INET6_ADDRSTRLEN];
+	unsigned short remote_port;
+
+	/* Variables associated with local address and port */
+	struct sockaddr_in local_addr_in;
+	struct sockaddr_in6 local_addr_in6;
+	struct sockaddr *local_addr;
+	char local_addr_str[INET6_ADDRSTRLEN];
+	unsigned short local_port;
+
+	struct addrinfo *rp;
 	for (rp = result; rp != NULL; rp = rp->ai_next) {
 		sfd = socket(rp->ai_family, rp->ai_socktype,
 				rp->ai_protocol);
@@ -117,20 +121,35 @@ int main(int argc, char *argv[]) {
 		addr_fam = rp->ai_family;
 		addr_len = rp->ai_addrlen;
 		if (addr_fam == AF_INET) {
+			/* This is an IPv4 address */
+			/* Copy the IPv4 address to remote_addr_in */
 			remote_addr_in = *(struct sockaddr_in *)rp->ai_addr;
+			/* Populate remote_addr_str (a string) with the
+			 * presentation format of the IPv4 address.*/
 			inet_ntop(addr_fam, &remote_addr_in.sin_addr,
-					remote_addr_str, addr_len);
+					remote_addr_str, INET6_ADDRSTRLEN);
+			/* Point remote_port, remote_addr, and local_addr to
+			 * the structures associated with IPv4 */
 			remote_port = ntohs(remote_addr_in.sin_port);
 			remote_addr = (struct sockaddr *)&remote_addr_in;
 			local_addr = (struct sockaddr *)&local_addr_in;
 		} else {
+			/* This is an IPv6 address */
+			/* Copy the IPv6 address to remote_addr_in */
 			remote_addr_in6 = *(struct sockaddr_in6 *)rp->ai_addr;
+			/* Populate remote_addr_str (a string) with the
+			 * presentation format of the IPv6 address.*/
 			inet_ntop(addr_fam, &remote_addr_in6.sin6_addr,
-					remote_addr_str, addr_len);
+					remote_addr_str, INET6_ADDRSTRLEN);
+			/* Point remote_port, remote_addr, and local_addr to
+			 * the structures associated with IPv6 */
 			remote_port = ntohs(remote_addr_in6.sin6_port);
 			remote_addr = (struct sockaddr *)&remote_addr_in6;
 			local_addr = (struct sockaddr *)&local_addr_in6;
 		}
+		/* At this point, you can use remote_port, remote_addr,
+		 * local_addr, and remote_addr_str, no matter which address
+		 * family (IPv4 or IPv6) is being used. */
 		fprintf(stderr, "Connecting to %s:%d (family: %d, len: %d)\n",
 				remote_addr_str, remote_port, addr_fam,
 				addr_len);
@@ -165,25 +184,35 @@ int main(int argc, char *argv[]) {
 	 * */
 	s = getsockname(sfd, local_addr, &addr_len);
 	if (addr_fam == AF_INET) {
+		/* Populate local_addr_str (a string) with the
+		 * presentation format of the IPv4 address.*/
 		inet_ntop(addr_fam, &local_addr_in.sin_addr,
-				local_addr_str, addr_len);
+				local_addr_str, INET6_ADDRSTRLEN);
+		/* Populate local_port with the value of the port, in host byte
+		 * order (as opposed to network byte order). */
 		local_port = ntohs(local_addr_in.sin_port);
 	} else {
+		/* Populate local_addr_str (a string) with the
+		 * presentation format of the IPv6 address.*/
 		inet_ntop(addr_fam, &local_addr_in6.sin6_addr,
-				local_addr_str, addr_len);
+				local_addr_str, INET6_ADDRSTRLEN);
+		/* Populate local_port with the value of the port, in host byte
+		 * order (as opposed to network byte order). */
 		local_port = ntohs(local_addr_in6.sin6_port);
 	}
 	fprintf(stderr, "Local socket info: %s:%d (family: %d, len: %d)\n",
 			local_addr_str, local_port, addr_fam,
 			addr_len);
 
+
 	/* SECTION C - interact with server; send, receive, print messages */
 
 	/* Send remaining command-line arguments as separate
 	   datagrams, and read responses from server */
 
-	for (j = hostindex + 2; j < argc; j++) {
-		len = strlen(argv[j]) + 1;
+	for (int j = hostindex + 2; j < argc; j++) {
+		char buf[BUF_SIZE];
+		size_t len = strlen(argv[j]) + 1;
 		/* +1 for terminating null byte */
 
 		if (len + 1 > BUF_SIZE) {
@@ -197,7 +226,7 @@ int main(int argc, char *argv[]) {
 			exit(EXIT_FAILURE);
 		}
 
-		nread = read(sfd, buf, BUF_SIZE);
+		ssize_t nread = read(sfd, buf, BUF_SIZE);
 		if (nread == -1) {
 			perror("read");
 			exit(EXIT_FAILURE);

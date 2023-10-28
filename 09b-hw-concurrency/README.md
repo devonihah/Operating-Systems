@@ -57,21 +57,22 @@ with that code and analyze what it is doing.
 
 Start the `echoserveri` server in the "server" pane using the following command line:
 
-```bash
-$ ./echoserveri port
-```
-(Replace `port` with a port of your choosing, an integer between 1024 and
+(Replace "port" with a port of your choosing, an integer between 1024 and
 65535.  Use of ports with values less than 1023 require root privileges).
+
+```bash
+./echoserveri port
+```
 
 In each of the three "client" panes run the following:
 
+(Replace "port" with the port on which the server program is now listening.)
+
 ```bash
-$ nc localhost port
+nc localhost port
 ```
 
-(Replace `port` with the port on which the server program is now listening.)
-
-`localhost` is a domain name that always refers to the local system.  This is
+"localhost" is a domain name that always refers to the local system.  This is
 used in the case where client and server are running on the same system.
 
 After all three are running, type some text in the first of the three "client"
@@ -79,7 +80,7 @@ panes, and press enter.  Repeat with the second and third "client" panes, _in
 that order_.  In the "analysis" pane run the following:
 
 ```bash
-$ ps -Lo user,pid,ppid,nlwp,lwp,state,ucmd -C echoserveri | grep ^$(whoami)\\\|USER
+ps -Lo user,pid,ppid,nlwp,lwp,state,ucmd -C echoserveri | grep ^$(whoami)\\\|USER
 ```
 
 The `ps` command lists information about processes that currently exist on the
@@ -152,13 +153,16 @@ Open `sbuf.c`, and put similar `printf()` statements around the following lines:
  - `sem_post(&sp->items);`
  - `sem_wait(&sp->items);`
  - `sem_post(&sp->slots);`
+
 (You will need to add `#include <stdio.h>`.)
 
 Run `make` again, then start the server in the "server" pane:
+
+(Replace "port" with a port of your choosing.)
+
 ```bash
-$ ./echoservert_pre port
+./echoservert_pre port
 ```
-(Replace `port` with a port of your choosing.)
 
 Use the output and the code itself to answer the following questions.
 
@@ -172,10 +176,11 @@ Use the output and the code itself to answer the following questions.
 
 In one of the "client" panes run the following:
 
+(Replace "port" with the port on which the server program is now listening.)
+
 ```bash
-$ nc localhost port
+nc localhost port
 ```
-(Replace `port` with the port on which the server program is now listening.)
 
  18. What event changes the state of the producer (i.e., so it is no longer
      waiting)?

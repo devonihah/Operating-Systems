@@ -16,6 +16,8 @@ SEEDS = [7719, 33833, 20468, 19789, 59455]
 CLIENT = './treasure_hunter'
 BYTES_MINUS_CHUNK = 8
 
+LEVEL_SCORES = { 0: 50, 1: 15, 2: 15, 3: 15, 4: 5 }
+
 SUMS = ['127624217659f4ba97d5457391edc8f60758714b',
         '2483b89fefaee5a83c25ba92dda9bd004357d6b1',
         '285e8e43bf9d8b7204f6972a3be88b8a599b068d',
@@ -92,7 +94,7 @@ def main():
     for level in levels:
         sys.stdout.write(f'Testing level {level}:\n')
         for seed in SEEDS:
-            max_score += 4
+            max_score += LEVEL_SCORES[level] / len(SEEDS)
             sys.stdout.write(f'    Seed %5d:' % (seed))
             sys.stdout.flush()
 
@@ -122,7 +124,7 @@ def main():
                 allowed_lengths += 1
 
             if h in SUMS and tot_bytes in allowed_lengths:
-                score += 4
+                score += LEVEL_SCORES[level] / len(SEEDS)
                 sys.stdout.write(f' PASSED')
             else:
                 sys.stdout.write(f' FAILED')

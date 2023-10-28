@@ -33,15 +33,11 @@ both communication types.
     - `send(2)` / `sendto(2)` / `write(2)`
     - `recv(2)` / `recvfrom(2)` / `read(2)`
 
- 2. Run `make` to build two executables: `client` and `server`.  These are
-    programs that will communicate with each other as client and server,
-    respectively.
-
- 3. Review the [Strings, I/O, and Environment](../hw-strings-io-env)
+ 2. Review the [Strings, I/O, and Environment](../01d-hw-strings-io-env)
     assignment.  Reviewing the principles on strings and I/O will greatly help
     you in this assignment!
 
- 4. Either log on to a BYU CS lab workstation directly or log on remotely using
+ 3. Either log on to a BYU CS lab workstation directly or log on remotely using
     SSH.  To log in using `ssh`, open a terminal and use the following `ssh`
     command:
 
@@ -54,7 +50,7 @@ both communication types.
     The exercises in this assignment will only work if run from a CS lab
     machine.
 
- 5. Start a tmux session.  Create two panes, such that the window looks like
+ 4. Start a tmux session.  Create two panes, such that the window looks like
     this:
 
     ```
@@ -65,11 +61,11 @@ both communication types.
     ---------------------------
     ```
 
- 6. On the left "remote" pane, use SSH to remotely log on to a CS lab machine
+ 5. On the left "remote" pane, use SSH to remotely log on to a CS lab machine
     _different_ from the one you are already on.  See a list of machine names
     [here](https://docs.cs.byu.edu/doku.php?id=open-lab-layout):
 
-    Fall 2023 Note: At the moment, only machines within the "Cities" and
+    Fall 2023 Note: At the moment, only machines within the "States" and
     "Marvel" labs appear to be reliable choices.
 
     (Replace "username" with your actual CS username and "hostname" with the
@@ -78,6 +74,10 @@ both communication types.
     ```bash
     ssh username@hostname
     ```
+
+ 6. In one of windows, run `make` to build two executables: `client` and
+    `server`.  These are programs that will communicate with each other as
+    client and server, respectively.
 
 
 # Part 1: UDP Sockets
@@ -99,8 +99,8 @@ server side, using the `client` and `server` programs, respectively.
 
 In the left "remote" pane, run the the following command:
 
-(Replace `port` with a port of your choosing, an integer between 1024 and
-65535.  Use of ports with values less than 1024 require root privileges).
+(Replace "port" with a port of your choosing, an integer between 1024 and
+65535.  Use of ports with values less than 1024 require root privileges.)
 
 ```bash
 ./server -4 port
@@ -130,7 +130,7 @@ as before.  While your server is again blocking, at least you can see _where_!
 Now, let's run the client to create some interaction between client and server.
 In the right "local" pane, run the following:
 
-(Replace `hostname` and `port` with name of the remote host and the port on
+(Replace "hostname" and "port" with name of the remote host and the port on
 which the server program is now listening, respectively.)
 
 ```bash
@@ -219,7 +219,7 @@ null character for this particular program:
 string (i.e., because we wrote the program!).  But `write()` is only concerned
 with bytes, so writing with argument `len` will result in writing one more
 character than the string is long--the null character.  See
-[Strings, I/O, and Environment](../hw-strings-io-env) for more.  When the
+[Strings, I/O, and Environment](../01d-hw-strings-io-env) for more.  When the
 server echoes back our message, we can use string operations on it--but only
 because we know that it contains the null character that we included when we
 sent the message.
@@ -255,10 +255,10 @@ before.
 
  8. *How many _total_ calls to `sendto()` were made by the client?* Hint: refer
     to `client.c`.
- 9. *How many messages were received by the kernel of the server-side process
-    _before_ the server called `recvfrom()` the second time (i.e., _between_
-    the server's first and second calls to `recvfrom()`)?*  You can assume that
-    the messages were sent immediately with `write()` and that the network
+ 9. *How many messages had been received by the server's kernel and were still
+    waiting to be read by the server-side process immediately before the server
+    called `recvfrom()` for the second time?* You can assume that the messages
+    were sent immediately when the client called `write()` and that any network
     delay was negligible.
  10. *How many total calls to `recvfrom()` were required for the server process to
      read all of the messages/bytes that were sent _including_ the first call to
@@ -356,7 +356,7 @@ the left "remote" pane.
 
 Now run the following command twice:
 
-(Replace `hostname` and `port` with name of the "remote" host and the port
+(Replace "hostname" and "port" with name of the "remote" host and the port
 on which the server program is now listening, respectively.)
 
 ```bash
@@ -403,10 +403,11 @@ pane), run the following in the right "local" pane:
 
  19. *How many total calls to `send()` / `write()` were made by the client?*
      Hint: refer to `client.c`.
- 20. *How many messages were received by the kernel of the server-side process
-     _before_ the server called `recv()`?*  You can assume that the messages
-     were sent immediately with `write()` and that the network delay was
-     negligible.
+ 20. *How many messages had been received by the server's kernel and were still
+     waiting to be read by the server-side process immediately before the
+     server called `recv()`?*   You can assume that the messages were sent
+     immediately when the client called `write()` and that any network delay
+     was negligible.
  21. *How many total calls to `recv()` were required for the server process to
      read all of the messages/bytes that were sent?*  Hint: look at the server
      output, and refer to `server.c`.  Explain how and why this behavior is
@@ -487,7 +488,7 @@ nc -l port
 Now test your client program by running the following in the right "local"
 pane:
 
-(Replace `hostname` and `port` with name of the remote host and the port on
+(Replace "hostname" and "port" with name of the remote host and the port on
 which the `nc` program is now listening, respectively.)
 
 ```bash
@@ -538,7 +539,8 @@ Modify `client.c`:
    printable characters followed by a null-terminator.  It might be an image, a
    movie, an executable, or something else. Therefore, you should not use
    `printf()` or any other string operators unless you _know_ it is a string
-   (see the [Strings, I/O, and Environment](../hw-strings-io-env#printf-and-friends)
+   (see the
+   [Strings, I/O, and Environment](../01d-hw-strings-io-env#printf-and-friends)
    assignment).  Instead, use `write()`.
 
    Even in the case where you _know_ bytes read from the socket are printable

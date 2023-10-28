@@ -205,7 +205,7 @@ it was just used for testing.
 
 As you implement this section, you might find it helpful to refer to the TCP
 code from the
-[sockets homework assignment](../hw-sockets).
+[sockets homework assignment](../07-hw-sockets).
 
 
 ### Receiving the HTTP Request
@@ -505,7 +505,7 @@ pthread_detach(pthread_self());
 ```
 
 Refer to the
-[concurrency homework assignment](../hw-concurrency)
+[concurrency homework assignment](../09a-hw-concurrency)
 for examples and code that you can integrate.
 
 
@@ -537,7 +537,7 @@ instead of handling a single client, it continually loops, waiting on new
 clients from the shared buffer (queue) and handling them in turn.
 
 Again, refer to the
-[concurrency homework assignment](../hw-concurrency)
+[concurrency homework assignment](../09a-hw-concurrency)
 for examples and code that you can integrate.
 
 

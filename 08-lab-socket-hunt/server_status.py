@@ -8,9 +8,9 @@ import threading
 
 PORT = 32400
 
-SERVERS = [ 'falcon', 'groot', 'hawkeye', 'houston',
-    'hulk', 'jakarta', 'london', 'montreal',
-    'nyc', 'paris', 'rogers', 'wanda' ]
+SERVERS = [ 'alaska', 'arkansas', 'california', 'connecticut',
+           'falcon', 'florida', 'groot', 'hawaii',
+           'hawkeye', 'hulk', 'rogers', 'wanda' ]
 
 lock = threading.Lock()
 status = {}
