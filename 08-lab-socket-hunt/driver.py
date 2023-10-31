@@ -15,6 +15,7 @@ NUM_LEVELS = 5
 SEEDS = [7719, 33833, 20468, 19789, 59455]
 CLIENT = './treasure_hunter'
 BYTES_MINUS_CHUNK = 8
+TIMEOUT = 10
 
 LEVEL_SCORES = { 0: 50, 1: 15, 2: 15, 3: 15, 4: 5 }
 
@@ -98,29 +99,37 @@ def main():
             sys.stdout.write(f'    Seed %5d:' % (seed))
             sys.stdout.flush()
 
-            err_msg = test_level_seed(level, seed)
+            warn_msg = test_level_seed(level, seed)
 
             cmd = ['strace', '-e', 'trace=%network',
                     CLIENT, args.server, str(args.port), str(level), str(seed)]
-            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            treasure = p.stdout
-            strace_output = p.stderr
-            h = hashlib.sha1(treasure).hexdigest()
+            try:
+                p = subprocess.run(cmd,
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        timeout=TIMEOUT)
+            except subprocess.TimeoutExpired:
+                treasure = b''
+                strace_output = b''
+                h = ''
+            else:
+                treasure = p.stdout
+                strace_output = p.stderr
+                h = hashlib.sha1(treasure).hexdigest()
 
             tot_bytes = 0
             output = strace_output.decode('utf-8').strip()
             for line in output.splitlines():
-                m = RECV_RE.search(line)
                 # skip DNS lookups
                 if 'htons(53)' in line:
                     continue
+                m = RECV_RE.search(line)
                 if m is not None:
                     received_bytes = int(m.group(2))
                     if received_bytes > 1:
                         tot_bytes += received_bytes - BYTES_MINUS_CHUNK
             
             allowed_lengths = [tot_bytes]
-            if treasure[-1] == b'\n':
+            if treasure and treasure[-1] == b'\n':
                 allowed_lengths += 1
 
             if h in SUMS and tot_bytes in allowed_lengths:
@@ -128,8 +137,8 @@ def main():
                 sys.stdout.write(f' PASSED')
             else:
                 sys.stdout.write(f' FAILED')
-            if err_msg:
-                sys.stdout.write(f' (warning: {err_msg})')
+            if warn_msg:
+                sys.stdout.write(f' (warning: {warn_msg})')
             sys.stdout.write('\n')
             
     print(f'Score: {score}/{max_score}')

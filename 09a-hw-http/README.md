@@ -206,13 +206,13 @@ Questions:
 
  9. For URL (b), what type of content is returned in the response body?
 
- 10. For URL (d), what type of content is returned in the response body?
+ 10. For URL (e), what type of content is returned in the response body?
 
  11. For URL (a), how large (i.e., how many bytes) is the response body?
 
  12. For URL (b), how large (i.e., how many bytes) is the response body?
 
- 13. For URL (d), how large (i.e., how many bytes) is the response body?
+ 13. For URL (e), how large (i.e., how many bytes) is the response body?
 
 
 # Part 2: URLs
@@ -408,8 +408,8 @@ the end-of-headers sequence, and the response body.  When it looks right, given
 the above inputs, add `sha1sum` to the end of the pipeline, so you get the
 SHA1SUM of the CGI program output.
 
- 26. What is the SHA1SUM of the CGI program when run with the above inputs?
-     Hint: it should start with `c0140d`.
+ 26. What is the SHA1SUM of the output of the CGI program when run with the
+     above inputs?  Hint: it should start with `c0140d`.
 
  27. What is the command pipeline you used to run the CGI program with the
      above inputs and produce the SHA1SUM in the previous question?

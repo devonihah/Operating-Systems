@@ -35,6 +35,7 @@ remote port assignment, IPv4 and IPv6, message parsing, and more.
    - [UDP Socket Behaviors](#udp-socket-behaviors)
    - [Testing Servers](#testing-servers)
    - [Logs](#logs)
+   - [Debugging Hints](#debugging-hints)
  - [Automated Testing](#automated-testing)
  - [Evaluation](#evaluation)
  - [Submission](#submission)
@@ -880,8 +881,12 @@ manipulation:
    connection to be shutdown.
  - Generally, either `connect()` must be used to associate a remote address and
    port with the socket, or `sendto()` must be used when sending messages.
-   However, for this lab, it is much easier to just use `sendto()` every time
-   over using `connect()` because of all the changing ports.
+   For this lab, please do _not_ use `connect()`; only use `sendto()`.  Because
+   the remote port will be changing, if `connect()` is used, then the socket
+   will be bound to a specific remote address and port, and a new socket will
+   have to be created to change that, e.g., in the case that you are directed
+   to use a new remote address and port (op-code 1) or you have to receive
+   something from a different address and port (op-code 3).
  - `sendto()` can be used to override the remote address and port associated
    with the socket.  See the man page for `udp(7)`.
 
@@ -914,12 +919,33 @@ have created the following script, which will show both a status of servers the
 ```
 
 
-## Logs
+## Debugging Hints
 
-All communications received by the servers are logged to files that are
-accessible to the TAs.  If you are having trouble tracking down the cause of
-faulty behavior, you may ask a TA to look for entries in the logs corresponding
-to your activity.
+ - Check the return values to all system calls, and use `perror()` to print out
+   the error message if the call failed.  Sometimes it is appropriate to call
+   `exit()` with a non-zero value; other times it is more appropriate to clean
+   up and move on.
+ - Place helpful print statements in your code, for debugging.  Use
+   `fprintf(stderr, ...)` to print to standard error.
+ - If a socket operation like `recvfrom()` results in a "Bad Address" error, it
+   is often because the `addr_len` parameter had an incorrect value.  The
+   `addr_len` parameter should contain a pointer to (the address of) a value
+   corresponding to the length of the address struct being used to receive the
+   value.  Typically this is done with running the following immediately before
+   calling the system call (e.g., `recvfrom()`);
+
+   ```c
+   addr_len = sizeof(struct sockaddr_storage);
+   ```
+ - If a call to `recv()` or `recvfrom()` blocks indefinitely -- particularly
+   with level 1 or level 3 -- it could be that it is because the remote address
+   and port have been set with `connect()` and the server cannot receive from
+   an arbitrary address and port.  Please double-check that you are not using
+   `connect()`.
+ - All communications received by the servers are logged to files that are
+   accessible to the TAs.  If you are having trouble tracking down the cause of
+   faulty behavior, you may ask a TA to look for entries in the logs
+   corresponding to your activity.
 
 
 # Automated Testing
