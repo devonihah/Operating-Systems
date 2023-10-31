@@ -158,38 +158,10 @@ int main(int argc, char *argv[]) {
 		 * will use the current address */
 		if (connect(sfd, remote_addr, addr_len) != -1)
 			break;  /* Success */
-		
 
 		close(sfd);
 	}
 
-	unsigned char input[4096];
-	int bytes_read, total_bytes = 0;
-	while ((bytes_read = read(STDIN_FILENO, input + total_bytes, 
-					sizeof(input) - total_bytes)) > 0) {
-		total_bytes += bytes_read;
-
-		if (total_bytes >= sizeof(input) - 1) {
-			fprintf(stderr, "Input array is full. Exiting.\n");
-			break;
-		}
-	}
-	printf("total_bytes: %d\n", total_bytes);
-	int bytes_sent = 0;
-	for (int i = 0; i < (total_bytes / 512 + 1); i++) {
-		unsigned char *send_info = (unsigned char *) malloc(512);
-		int bytes_to_send = 0;
-		for (int j = 0; j < 512; j++) {
-			if ((i * 512) + j >= total_bytes) break;
-			bytes_to_send++;
-			send_info[j] = input[(i * 512) + j];
-		}
-		bytes_sent += write(sfd, send_info, bytes_to_send);
-		if (bytes_sent >= total_bytes) {
-			break;
-		}
-	}
-	printf("total_bytes_sent: %d\n", bytes_sent);
 	if (rp == NULL) {   /* No address succeeded */
 		fprintf(stderr, "Could not connect\n");
 		exit(EXIT_FAILURE);
@@ -237,11 +209,11 @@ int main(int argc, char *argv[]) {
 
 	/* Send remaining command-line arguments as separate
 	   datagrams, and read responses from server */
-/*
+
 	for (int j = hostindex + 2; j < argc; j++) {
 		char buf[BUF_SIZE];
 		size_t len = strlen(argv[j]) + 1;
-		// +1 for terminating null byte
+		/* +1 for terminating null byte */
 
 		if (len + 1 > BUF_SIZE) {
 			fprintf(stderr, "Ignoring long message in argument %d\n", j);
@@ -253,7 +225,7 @@ int main(int argc, char *argv[]) {
 			exit(EXIT_FAILURE);
 		}
 		
-		
+		/*
 		ssize_t nread = read(sfd, buf, BUF_SIZE);
 		if (nread == -1) {
 			perror("read");
@@ -261,8 +233,8 @@ int main(int argc, char *argv[]) {
 		}
 
 		printf("Received %zd bytes: %s\n", nread, buf);
-		
+		*/
 	}
-*/
+
 	exit(EXIT_SUCCESS);
 }

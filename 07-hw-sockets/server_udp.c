@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	unsigned short port = atoi(argv[portindex]);
-	int sock_type = SOCK_STREAM;
+	int sock_type = SOCK_DGRAM;
 
 
 	/* SECTION A - populate address structures */
@@ -106,50 +106,45 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* Read datagrams and echo them back to sender */
-	
-	listen(sfd, 100);
 	for (;;) {
-		socklen_t remote_addr_len = sizeof(struct sockaddr_storage);
-		int in_fd = accept(sfd, remote_addr, &remote_addr_len);
+		char buf[BUF_SIZE];
+
+		/* addrlen needs to be initialized before the call to
+		 * recvfrom().  See the man page for recvfrom(). */
+		addr_len = sizeof(struct sockaddr_storage);
+		ssize_t nread = recvfrom(sfd, buf, BUF_SIZE, 0,
+				remote_addr, &addr_len);
 		sleep(5);
-		for (;;) {
-			char buf[BUF_SIZE];
+		if (nread == -1)
+			continue;   /* Ignore failed request */
 
-			/* addrlen needs to be initialized before the call to
-			 * recvfrom().  See the man page for recvfrom(). */
-			addr_len = sizeof(struct sockaddr_storage);
-			ssize_t nread = recv(in_fd, buf, BUF_SIZE, 0);
-			if (nread == -1)
-				continue;   /* Ignore failed request */
-
-			if (addr_fam == AF_INET) {
-				remote_addr_in = *(struct sockaddr_in *)remote_addr;
-				/* Populate remote_addr_str (a string) with the
-				 * presentation format of the IPv4 address.*/
-				inet_ntop(addr_fam, &remote_addr_in.sin_addr,
-						remote_addr_str, INET6_ADDRSTRLEN);
-				/* Populate remote_port with the value of the port, in
-				 * host byte order (as opposed to network byte order).
-				 * */
-				remote_port = ntohs(remote_addr_in.sin_port);
-			} else {
-				remote_addr_in6 = *(struct sockaddr_in6 *)remote_addr;
-				/* Populate remote_addr_str (a string) with the
-				 * presentation format of the IPv6 address.*/
-				inet_ntop(addr_fam, &remote_addr_in6.sin6_addr,
-						remote_addr_str, INET6_ADDRSTRLEN);
-				/* Populate remote_port with the value of the port, in
-				 * host byte order (as opposed to network byte order).
-				 * */
-				remote_port = ntohs(remote_addr_in6.sin6_port);
-			}
-			printf("Received %zd bytes from %s:%d\n",
-					nread, remote_addr_str, remote_port);
-
-			if (send(in_fd, buf, nread, 0) == 0) {
-				close(in_fd);
-				break;
-			}
+		if (addr_fam == AF_INET) {
+			remote_addr_in = *(struct sockaddr_in *)remote_addr;
+			/* Populate remote_addr_str (a string) with the
+			 * presentation format of the IPv4 address.*/
+			inet_ntop(addr_fam, &remote_addr_in.sin_addr,
+					remote_addr_str, INET6_ADDRSTRLEN);
+			/* Populate remote_port with the value of the port, in
+			 * host byte order (as opposed to network byte order).
+			 * */
+			remote_port = ntohs(remote_addr_in.sin_port);
+		} else {
+			remote_addr_in6 = *(struct sockaddr_in6 *)remote_addr;
+			/* Populate remote_addr_str (a string) with the
+			 * presentation format of the IPv6 address.*/
+			inet_ntop(addr_fam, &remote_addr_in6.sin6_addr,
+					remote_addr_str, INET6_ADDRSTRLEN);
+			/* Populate remote_port with the value of the port, in
+			 * host byte order (as opposed to network byte order).
+			 * */
+			remote_port = ntohs(remote_addr_in6.sin6_port);
 		}
+		printf("Received %zd bytes from %s:%d\n",
+				nread, remote_addr_str, remote_port);
+
+		if (sendto(sfd, buf, nread, 0,
+					remote_addr,
+					addr_len) < 0)
+			fprintf(stderr, "Error sending response\n");
 	}
 }
