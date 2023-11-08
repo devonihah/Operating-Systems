@@ -4,25 +4,20 @@
 #include <unistd.h>
 
 int main(void) {
-	char *name;
-	char *value;
-	char *next_pair;
-	int i, j;
-	int chunk;
+
 	int size = 0;
 	int sleep_time = 0;
 	int chunk_size = 0;
-	char *buf;
 
-	name = getenv("QUERY_STRING");
+	char *name = getenv("QUERY_STRING");
 	if (name != NULL) { 
 		do {
-			next_pair = strchr(name, '&');
+			char *next_pair = strchr(name, '&');
 			if (next_pair != NULL) {
 				*next_pair = '\0';
 				next_pair++;
 			}
-			value = strchr(name, '=');
+			char *value = strchr(name, '=');
 			if (value != NULL) {
 				*value = '\0';
 				value++;
@@ -42,17 +37,17 @@ int main(void) {
 		chunk_size = size/2;
 	}
 
-	buf = malloc(sizeof(char) * (size + 1));
+	char *buf = malloc(sizeof(char) * (size + 1));
 
 	/* Generate the HTTP response */
 	printf("Connection: close\r\n");
 	printf("Content-length: %d\r\n", size);
 	printf("Content-type: text/plain\r\n\r\n");
 	fflush(stdout);
-	i = 0;
+	int i = 0, j = 0;
 	while (i < size) {
 		sleep(sleep_time);
-		chunk = i + chunk_size;
+		int chunk = i + chunk_size;
 		if (chunk > size) {
 			chunk = size;
 		}

@@ -73,28 +73,32 @@ local HTTP server.
     ssh username@hostname
     ```
 
- 5. In the "HTTP Server" (lower) pane, run the following:
+ 5. In the "HTTP Server" (lower) pane, use `cd` to navigate to the directory
+    associated with this assignment, i.e., the one containing the "www"
+    directory.
+
+ 6. In the "HTTP Server" (lower) pane, run the following:
 
     (Replace "port" with a port of your choosing, an integer between 1024 and
     65535.  Use of ports with values less than 1024 require root privileges.)
 
     ```
-    cd www
-    python3 -m http.server --cgi port
+    python3 -m http.server -d www --cgi port
     ```
 
-    This starts a python-based HTTP server in the directory "www" listening on
-    the TCP port that you designated.  The `--cgi` option tells the server to
-    support CGI.  That means that paths starting with "/cgi-bin/" should be
-    treated as CGI programs; that is, they are executed by the server and their
-    output sent back to the client--as opposed the server sending their file
-    contents to the client.  Note that this HTTP server uses HTTP/1.0.  For the
-    purposes of this assignment, the difference between HTTP/1.1 and HTTP/1.0
-    is that an HTTP/1.1 server can receive multiple requests, back-to-back,
-    over the same TCP connection, whereas an HTTP/1.0 server closes its end of
-    the connection after transmitting the entire HTTP response.  In this latter
-    case, the client's call to `read()` results in a return value of 0, which
-    is, effectively, end-of-file (EOF).
+    This starts a python-based HTTP server in the directory "www" (specified
+    with the `-d` option) listening on the TCP port that you designated.  The
+    `--cgi` option tells the server to support CGI.  That means that paths
+    starting with "/cgi-bin/" should be treated as CGI programs; that is, they
+    are executed by the server and their output sent back to the client--as
+    opposed the server sending their file contents to the client.  Note that
+    this HTTP server uses HTTP/1.0.  For the purposes of this assignment, the
+    difference between HTTP/1.1 and HTTP/1.0 is that an HTTP/1.1 server can
+    receive multiple requests, back-to-back, over the same TCP connection,
+    whereas an HTTP/1.0 server closes its end of the connection after
+    transmitting the entire HTTP response.  In this latter case, the client's
+    call to `read()` results in a return value of 0, which is, effectively,
+    end-of-file (EOF).
 
 
 # Part 1: HTTP
@@ -354,15 +358,16 @@ Note that using skills you learned in the
 _without_ an HTTP server.  That is, using the shell, you can artificially set
 the environment variables that the CGI program expects, provide data to the
 standard input of the CGI by using a pipe that is connected to the standard
-output of another program, and observe the output of the CGI program on the
-terminal.  Of course, in the case of a CGI program that was executed by an HTTP
-server, the output would have gone to the socket connected to the client
-because that socket would have been duplicated onto standard output.  But
-because standard has not been modified, here you will see it on the terminal.
+output of another program (e.g., `echo`), and observe the output of the CGI
+program on the terminal.  Of course, in the case of a CGI program that was
+executed by an HTTP server, the output would have gone to the socket connected
+to the client because that socket would have been duplicated onto standard
+output.  But because standard has not been modified, here you will see it on
+the terminal.
 
 Using these concepts, your job is to determine how to run your CGI program as a
 command-line pipeline, passing it the following inputs, as if it had been
-executed (i.e., with `execve()`) by and HTTP server that understood CGI:
+executed (i.e., with `execve()`) by an HTTP server that understood CGI:
 
  - Query string: `univ=byu&class=CS324&msg=hello%3Dworld%21`
  - Request body: `username=user&password=pw`
@@ -409,7 +414,8 @@ the above inputs, add `sha1sum` to the end of the pipeline, so you get the
 SHA1SUM of the CGI program output.
 
  26. What is the SHA1SUM of the output of the CGI program when run with the
-     above inputs?  Hint: it should start with `c0140d`.
+     above inputs (query string and request body)?  Hint: it should start with
+     `c0140d`.
 
- 27. What is the command pipeline you used to run the CGI program with the
+ 28. What is the command pipeline you used to run the CGI program with the
      above inputs and produce the SHA1SUM in the previous question?

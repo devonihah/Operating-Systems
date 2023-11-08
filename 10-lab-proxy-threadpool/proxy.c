@@ -1,36 +1,35 @@
 #include <stdio.h>
 
-/* Recommended max cache and object sizes */
-#define MAX_CACHE_SIZE 1049000
+/* Recommended max object size */
 #define MAX_OBJECT_SIZE 102400
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:97.0) Gecko/20100101 Firefox/97.0";
 
-int all_headers_received(char *);
-int parse_request(char *, char *, char *, char *, char *, char *);
+int complete_request_received(char *);
+int parse_request(char *, char *, char *, char *, char *);
 void test_parser();
 void print_bytes(unsigned char *, int);
 
 
-int main()
+int main(int argc, char *argv[])
 {
 	test_parser();
 	printf("%s\n", user_agent_hdr);
 	return 0;
 }
 
-int all_headers_received(char *request) {
+int complete_request_received(char *request) {
 	return 0;
 }
 
 int parse_request(char *request, char *method,
-		char *hostname, char *port, char *path, char *headers) {
+		char *hostname, char *port, char *path) {
 	return 0;
 }
 
 void test_parser() {
 	int i;
-	char method[16], hostname[64], port[8], path[64], headers[1024];
+	char method[16], hostname[64], port[8], path[64];
 
        	char *reqs[] = {
 		"GET http://www.example.com/index.html HTTP/1.0\r\n"
@@ -55,11 +54,11 @@ void test_parser() {
 	
 	for (i = 0; reqs[i] != NULL; i++) {
 		printf("Testing %s\n", reqs[i]);
-		if (parse_request(reqs[i], method, hostname, port, path, headers)) {
+		if (parse_request(reqs[i], method, hostname, port, path)) {
 			printf("METHOD: %s\n", method);
 			printf("HOSTNAME: %s\n", hostname);
 			printf("PORT: %s\n", port);
-			printf("HEADERS: %s\n", headers);
+			printf("PATH: %s\n", path);
 		} else {
 			printf("REQUEST INCOMPLETE\n");
 		}

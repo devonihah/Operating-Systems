@@ -373,7 +373,7 @@ The following is an explanation of each field:
    [4](#level-4-extra-credit) for a detailed description of each.
 
  - Bytes `n + 2` - `n + 3`: These bytes, an `unsigned short` in network byte
-   order is the parameter used in conjunction with the op-code.  For op-code 0,
+   order, is the parameter used in conjunction with the op-code.  For op-code 0,
    the field exists, but can simply be ignored.
 
  - Bytes `n + 4` - `n + 7`: These bytes, an `unsigned int` in network byte
@@ -385,28 +385,47 @@ and the nonce using the hints in the [message formatting](#message-formatting)
 section), storing them in variables of the appropriate types, so you can work
 with them.  For example, if a value has a length of one byte, then use an
 `unsigned char`, or if a value has a length of two bytes, use an
-`unsigned short`, etc. Print them out to verify that you have extracted them
-properly, and pay attention to endian-ness for variables that consume multiple
-bytes.  For example, if you receive the nonce 0x12345678, then printing out the
-value of the variable in which you have stored the nonce, e.g., with:
+`unsigned short`, etc.  Because the treasure chunk will consist of ASCII
+characters, it can be stored using a `char []`.  However, remember to add a
+null byte after the treasure chunk, or `printf()` will not know how to treat it
+properly.
+
+Print out the value of each variable to verify that you
+have extracted them properly, and pay attention to endian-ness for variables
+that consume multiple bytes.  For example, suppose you you receive a directions
+response that results in the following output from `print_bytes()`:
+
+```bash
+00: 04 61 62 63  64 01 BE EF  . a b c d . . .
+08: 12 34 56 78               . 4 V x        
+```
+
+printing out the value of the variables associated with each value extracted
+from the directions response.  For example:
 
 ```c
-printf("%x", nonce);
+printf("%x\n", chunklen);
+printf("%s\n", chunk); // <-- Remember, this will only work
+                     // if you have null-terminated the chunk!
+printf("%x\n", opcode);
+printf("%x\n", opparam);
+printf("%x\n", nonce);
 ```
 
 should result in the following output:
 
 ```
+4
+abcd
+1
+beef
 12345678
 ```
 
-Because the treasure chunk will consist of ASCII characters, it can be stored
-using a `char []`.  However, remember to add a null byte after the treasure
-chunk, or `printf()` will not know how to treat it properly.
-
-Also, the op-param has no use for level 0, and the value might actually be 0.
-This means that endian-ness for op-param is hard to check at this point.  But
-you can check it in future levels when the value is non-zero.
+Note that the op-param has no use for level 0, and the value might actually
+be 0.  This means that endian-ness for op-param is hard to check at this point.
+But you can check the others, and you can check op-param in future levels when
+the value is non-zero.
 
 You will be sending the nonce (well, a variant of it) back to the server, in
 exchange for additional chunks, until you have received the whole treasure.
@@ -435,17 +454,27 @@ and will have the following format:
 
  - Bytes 0 - 3: an `unsigned int` having a value of one more than the nonce
    most recently sent by the server, in network byte order.  For example, if
-   the server previously sent 100 as the nonce, then this value would be 101.
+   the server previously sent 0x12345678 as the nonce, then this value should
+   be 0x12345679.
 
 Build your follow-up request using the guidance in the
 [message formatting helps](#message-formatting) section, and use
-`print_bytes()` to make sure it looks the way it should.  Re-build and re-run
-your program:
+`print_bytes()` to make sure it looks the way it should.
+
+Re-build and re-run your program:
 
 ```bash
 make
 ./treasure_hunter server 32400 0 7719
 ```
+
+Make sure the bytes are in the correct order!  For example, if you received the
+nonce 0x12345678 as the nonce, then `print_bytes()` should produce the
+following for the return message:
+
+   ```bash
+   00: 12 34 56 79               . 4 V y        
+   ```
 
 If everything looks good, then use `sendto()` to send your follow-up request
 and `recvfrom()` to receive your next directions response.
@@ -692,8 +721,9 @@ following to prepare the next directions request:
      an `unsigned short` (16 bits), so you will want to keep track of their
      _sum_ with an `unsigned int` (32 bits).
  - Add 1 to the nonce, and prepare the new directions request with that value.
- - Send the directions request with the same local and remort ports with which
-   the most recent directions response was received.
+ - Send the directions request with the same local and remote ports with which
+   the most recent directions request was sent--not the ones from which you
+   received the `m` datagrams.
 
 
 ### Checkpoint 9
@@ -785,12 +815,14 @@ char` (8 bits)?  There are several ways.  Consider the following program:
 
 int main() {
 	unsigned char buf[BUFSIZE];
-	unsigned short val = 0xabcd;
-	int i = 0;
+
+        // initialize buf to 0
 	bzero(buf, BUFSIZE);
 
-	memcpy(&buf[6], &val, 2);
-	for (i = 0; i < BUFSIZE; i++) {
+        unsigned short val = 0xabcd;
+	
+	memcpy(&buf[6], &val, sizeof(unsigned short));
+	for (int i = 0; i < BUFSIZE; i++) {
 		printf("%x ", buf[i]);
 	}
 	printf("\n");
@@ -804,40 +836,51 @@ in the *reverse* order from what you might expect.  If so, is because the
 architecture that you are using is *little endian*.  This is problematic for
 network communications, which expect integers to be in *network* byte order
 (i.e., *big endian*).  To remedy this, there are functions provided for you by
-the system, including `htons()` and `ntohs()` ("host to network short" and
-"network to host short").  See their man pages for more information.  Try
-modifying the code above to assign `htons(0xabcd)` to `val` instead, and see
-how the output changes.
+the system.  In order to use mult-byte integers for any computation (e.g.,
+printing them out, incrementing them, using them to index into an array, etc.),
+those integers need to be in *host* byte order.  For short integers (i.e.,
+`short` and `unsigned short`), the proper functions to use are the following:
 
-The example above is specific to storing an `unsigned short` integer value into
-an arbitrary memory location (in this case an array of `unsigned char`) in
-network byte order.  You will need to use this principle to figure out how to
-do similar conversions for other cirumstances, including working with integers
-other than `unsigned short` and extracting integers of various lengths from
-arrays of `unsigned char`.  Hint: see the man page for `ntohs(3)` for related
-functions.
+ - `htons()` - "host to network short", convert the byte order from host order
+   to network order.
+ - `ntohs()` - "network to host short", convert the byte order from network
+   order to host order.
+
+If you modify the code above to use `val = htons(0xabcd)` you will see that the
+output now changes such that the bytes are in the proper order.  For long
+integers (including `int` and `unsigned int`), the proper functions to use are
+the following:
+
+ - `htonl()` - "host to network long", convert the byte order from host order
+   to network order.
+ - `ntohl()` - "network to host long", convert the byte order from network
+   order to host order.
+
+Just as you need to convert any multi-byte integer that you _received_ from the
+the network to host byte order, for any multi-byte integer that you wish to
+_send_ in an outgoing message, you need to convert it to network byte order.
 
 
 ## Error Codes
 
 Any error codes sent by the server will be one of the following:
 
- - 129: The message was sent from an unexpected port (i.e., the source port of
+ - 129 (0x81): The message was sent from an unexpected port (i.e., the source port of
    the packet received by the server).
- - 130: The message was sent to the wrong port (i.e., the remote port of the
+ - 130 (0x82): The message was sent to the wrong port (i.e., the remote port of the
    packet received by the server).
- - 131: The message had an incorrect length.
- - 132: The value of the nonce was incorrect.
- - 133: After multiple tries, the server was unable to bind properly to the
+ - 131 (0x83): The message had an incorrect length.
+ - 132 (0x84): The value of the nonce was incorrect.
+ - 133 (0x85): After multiple tries, the server was unable to bind properly to the
    address and port that it had attempted.
- - 134: After multiple tries, the server was unable to detect a remote port on
+ - 134 (0x86): After multiple tries, the server was unable to detect a remote port on
    which the client could bind.
- - 135: A bad level was sent the server on the initial request, or the first
+ - 135 (0x87): A bad level was sent the server on the initial request, or the first
    byte of the initial request was not zero.
- - 136: A bad user id was sent the server on the initial request, such that a
+ - 136 (0x88): A bad user id was sent the server on the initial request, such that a
    username could not be found on the system running the server.
- - 137: An unknown error occurred.
- - 138: The message was sent using the wrong address family (i.e., IPv4 or
+ - 137 (0x89): An unknown error occurred.
+ - 138 (0x8a): The message was sent using the wrong address family (i.e., IPv4 or
    IPv6).
 
 
@@ -927,6 +970,18 @@ have created the following script, which will show both a status of servers the
    up and move on.
  - Place helpful print statements in your code, for debugging.  Use
    `fprintf(stderr, ...)` to print to standard error.
+ - Use the program `strace` to show you where you are sending datagrams with
+   `sendto()` or from where you are receiving them with `recvfrom()`.  For
+   example:
+   ```bash
+   strace -e trace=sendto,recvfrom ./treasure_hunter ...
+   ```
+   calls `strace` on `./treasure_hunter`, showing only calls to `sendto()` and
+   `recvfrom()`.  By reading the `strace` output, you can compare the values
+   you are getting or setting for the `sin_port` member of a
+   `struct sockaddr_in` instance (or `sin6_port` member of a
+   `struct sockaddr_in6` instance) to see if they match what you are printing
+   out for those values.
  - If a socket operation like `recvfrom()` results in a "Bad Address" error, it
    is often because the `addr_len` parameter had an incorrect value.  The
    `addr_len` parameter should contain a pointer to (the address of) a value

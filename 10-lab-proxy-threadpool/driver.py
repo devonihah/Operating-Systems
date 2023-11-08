@@ -28,25 +28,24 @@ CURRENT_DIR = '.'
 SLOW_CLIENT = os.path.join(CURRENT_DIR, 'slow-client.py')
 NOP_SERVER = os.path.join(CURRENT_DIR, 'nop-server.py')
 PROXY = os.path.join(CURRENT_DIR, 'proxy')
-TINY_DIR = os.path.join(CURRENT_DIR, 'tiny')
-TINY = os.path.join(TINY_DIR, 'tiny')
+WWW_DIR = os.path.join(CURRENT_DIR, 'www')
 VALGRIND = 'valgrind'
 VALGRIND_MEMCHECK_PATTERN = 'memcheck'
 
 class ProxyTestSuite:
     def __init__(self, mode, test_classes, proxy_host='localhost',
-            tiny_host='localhost',
+            server_host='localhost',
             mem_mgmt=None, clean_shutdown=None, keep_files=False,
-            tiny_output=False, proxy_output=False,
+            server_output=False, proxy_output=False,
             verbose=False):
         self.mode = mode
         self.test_classes = test_classes
         self.proxy_host = proxy_host
-        self.tiny_host = tiny_host
+        self.server_host = server_host
         self.mem_mgmt = mem_mgmt
         self.clean_shutdown = clean_shutdown
         self.keep_files = keep_files
-        self.tiny_output = tiny_output
+        self.server_output = server_output
         self.proxy_output = proxy_output
         self.verbose = verbose
         self.use_valgrind = self.mem_mgmt is not None or self.clean_shutdown is not None
@@ -66,10 +65,10 @@ class ProxyTestSuite:
             print('TEST GROUP %d (%d points) ***' % (num, pts_for_group))
             for cls in classes:
                 p = cls(proxy_host=self.proxy_host,
-                        tiny_host=self.tiny_host,
+                        server_host=self.server_host,
                         use_valgrind=self.use_valgrind,
                         keep_files=self.keep_files,
-                        tiny_output=self.tiny_output,
+                        server_output=self.server_output,
                         proxy_output=self.proxy_output,
                         verbose=self.verbose)
                 print('    %s' % (p.DESCRIPTION))
@@ -132,24 +131,23 @@ class ProxyTestSuite:
 
 class ProxyTest:
     EXECUTABLES = \
-            [SLOW_CLIENT, NOP_SERVER,
-                    PROXY, TINY]
+            [SLOW_CLIENT, NOP_SERVER, PROXY]
     DESCRIPTION = 'Proxy Test'
     FILES = []
 
     def __init__(self, proxy_host='localhost', proxy_port=None,
-            tiny_host='localhost', tiny_port=None,
+            server_host='localhost', server_port=None,
             use_valgrind=True, keep_files=False,
-            tiny_output=False, proxy_output=False,
+            server_output=False, proxy_output=False,
             verbose=False):
 
         self.logger = logging.getLogger('.')
 
-        self.tiny_host = tiny_host
-        if tiny_port is None:
-            tiny_port = self.find_free_port()
-        self.tiny_port = tiny_port
-        self.tiny_proc = None
+        self.server_host = server_host
+        if server_port is None:
+            server_port = self.find_free_port()
+        self.server_port = server_port
+        self.server_proc = None
 
         self.proxy_host = proxy_host
         if proxy_port is None:
@@ -172,7 +170,7 @@ class ProxyTest:
 
         self.use_valgrind = use_valgrind
         self.keep_files = keep_files
-        self.tiny_output = tiny_output
+        self.server_output = server_output
         self.proxy_output = proxy_output
         self.verbose = verbose
 
@@ -193,7 +191,7 @@ class ProxyTest:
         self.cleanup_processes_non_targetted()
         self._check_files()
 
-        self.start_tiny()
+        self.start_server()
         self.start_proxy()
 
         # Wait for threads to be initialized
@@ -311,13 +309,13 @@ class ProxyTest:
         except subprocess.CalledProcessError as e:
             pass
 
-    def _cleanup_processes(self, kill_proxy, kill_tiny, kill_nop):
+    def _cleanup_processes(self, kill_proxy, kill_server, kill_nop):
         for sig in ('INT', 'TERM'):
             pids = []
             if kill_proxy and self.proxy_proc is not None and self.proxy_proc.poll() is None:
                 pids.append(self.proxy_proc.pid)
-            if kill_tiny and self.tiny_proc is not None and self.tiny_proc.poll() is None:
-                pids.append(self.tiny_proc.pid)
+            if kill_server and self.server_proc is not None and self.server_proc.poll() is None:
+                pids.append(self.server_proc.pid)
             if kill_nop and self.nop_server_proc is not None and self.nop_server_proc.poll() is None:
                 pids.append(self.nop_server_proc.pid)
 
@@ -336,11 +334,11 @@ class ProxyTest:
 
     def cleanup_processes(self):
         self.logger.info('Cleaning up all processes.')
-        self._cleanup_processes(kill_tiny=True, kill_proxy=True, kill_nop=True)
+        self._cleanup_processes(kill_server=True, kill_proxy=True, kill_nop=True)
 
-    def kill_tiny(self):
-        self.logger.info('Killing the tiny process.')
-        self._cleanup_processes(kill_tiny=True, kill_proxy=False, kill_nop=False)
+    def kill_server(self):
+        self.logger.info('Killing the server process.')
+        self._cleanup_processes(kill_server=True, kill_proxy=False, kill_nop=False)
 
     def cleanup_files(self):
         self.logger.info('Removing temporary files: %s, %s, and %s' % (self.proxy_dir, self.noproxy_dir, self.valgrind_log_file))
@@ -362,24 +360,13 @@ class ProxyTest:
             self.cleanup_files()
 
     def _check_files(self):
-        # Make sure we have a Tiny directory
-        if not os.path.isdir(TINY_DIR):
-            raise MissingFile('Directory "%s" not found' % TINY_DIR)
-
-        if not os.path.exists(TINY):
-            self.logger.info('Building the tiny executable.')
-            try:
-                subprocess.check_call(['make'], cwd=TINY_DIR)
-            except subprocess.CalledProcessError as e:
-                raise FailedCommand('Error building tiny')
-
         for f in self.FILES:
             if f.startswith('http://'):
                 continue
             qs_index = f.find('?')
             if qs_index > -1:
                 f = f[:qs_index]
-            f = os.path.join(TINY_DIR, f)
+            f = os.path.join(WWW_DIR, f)
             if not os.path.exists(f):
                 raise MissingFile('File "%s" not found' % f)
 
@@ -427,17 +414,17 @@ class ProxyTest:
         if not self.mem_mgmt or not self.mem_cleanup:
             self.logger.debug(valgrind_output)
 
-    def start_tiny(self):
-        self.logger.info('Starting tiny on port %d' % self.tiny_port)
-        cmd = [os.path.join(CURRENT_DIR, os.path.relpath(TINY, TINY_DIR)), str(self.tiny_port)]
+    def start_server(self):
+        self.logger.info('Starting server on port %d' % self.server_port)
+        cmd = ['python3', '-m', 'http.server', '--cgi', str(self.server_port)]
         kwargs = {}
-        if self.tiny_output:
-            kwargs.update(stdout=self.tiny_output, stderr=subprocess.STDOUT)
+        if self.server_output:
+            kwargs.update(stdout=self.server_output, stderr=subprocess.STDOUT)
         else:
             kwargs.update(stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         self.logger.debug(' '.join(cmd))
-        self.tiny_proc = subprocess.Popen(cmd, cwd=TINY_DIR, **kwargs)
-        self.wait_for_port_use(self.tiny_port, 5)
+        self.server_proc = subprocess.Popen(cmd, cwd=WWW_DIR, **kwargs)
+        self.wait_for_port_use(self.server_port, 5)
 
     def start_proxy(self):
         self.logger.info('Starting proxy on port %d' % self.proxy_port)
@@ -489,7 +476,7 @@ class ProxyTest:
         raise NotImplemented
 
     def download_noproxy(self, url, output, timeout):
-        self.logger.info('Fetching %s into %s - direct from tiny' % (url, output))
+        self.logger.info('Fetching %s into %s - direct from server' % (url, output))
         # create an empty file
         open(output, 'w').close()
         cmd = ['curl', '--max-time', str(timeout), '--silent', '--output',
@@ -530,8 +517,7 @@ class ProxyTest:
 
 
 class BasicProxyTest(ProxyTest):
-    FILES = ['home.html', 'csapp.c', 'tiny.c', 'godzilla.jpg',
-                    'tiny']
+    FILES = ['foo.html', 'bar.txt', 'socket.jpg']
     DESCRIPTION = 'Basic Proxy Test'
     EXTENDED_DESCRIPTION = \
             'Requesting files of several types through proxy.' 
@@ -553,7 +539,7 @@ class BasicProxyTest(ProxyTest):
                     filename = path
             else:
                 url = 'http://%s:%d/%s' % \
-                        (self.tiny_host, self.tiny_port, filename)
+                        (self.server_host, self.server_port, filename)
             dst_path_proxy = os.path.join(self.proxy_dir,
                     '%s-%d' % (self._filesystem_safe(filename), i))
             dst_path_noproxy = os.path.join(self.noproxy_dir,
@@ -585,7 +571,7 @@ class NonlocalProxyTest(BasicProxyTest):
             'for a non-local URL.'
 
 class SlowRequestProxyTest(BasicProxyTest):
-    FILES = ['home.html']
+    FILES = ['foo.html']
     DESCRIPTION = 'Slow Request Test'
     EXTENDED_DESCRIPTION = \
             'Issuing a request to the proxy, iteratively, using several ' + \
@@ -609,9 +595,9 @@ class SlowRequestResponseProxyTest(BasicProxyTest):
 
     download_proxy = ProxyTest._download_proxy_slow
 
-class BasicConcurrencyProxyTest(BasicProxyTest):
-    FILES = ['home.html']
-    DESCRIPTION = 'Basic Concurrency Test'
+class DumbConcurrencyProxyTest(BasicProxyTest):
+    FILES = ['foo.html']
+    DESCRIPTION = 'Dumb Concurrency Test'
     EXTENDED_DESCRIPTION = \
             'Issuing a request to the proxy, while it is busy with ' + \
             'another request.' 
@@ -628,7 +614,7 @@ class BasicConcurrencyProxyTest(BasicProxyTest):
         return super(BasicConcurrencyProxyTest, self).run()
 
 class CacheTest(ProxyTest):
-    FILES = ['tiny.c', 'home.html', 'csapp.c']
+    FILES = ['foo.html', 'bar.txt']
     DESCRIPTION = 'Cache Test'
     EXTENDED_DESCRIPTION = \
             'Requesting a file through the proxy after it has already ' + \
@@ -646,7 +632,7 @@ class CacheTest(ProxyTest):
             dst_path_noproxy = os.path.join(self.noproxy_dir,
                     '%s-%d' % (self._filesystem_safe(filename), i))
             url = 'http://%s:%d/%s' % \
-                    (self.tiny_host, self.tiny_port, filename)
+                    (self.server_host, self.server_port, filename)
 
             proxy_proc = self.download_proxy(url, dst_path_proxy, 10)
             proxy_proc.wait()
@@ -654,7 +640,7 @@ class CacheTest(ProxyTest):
             noproxy_proc = self.download_noproxy(url, dst_path_noproxy, 10)
             noproxy_proc.wait()
 
-        self.kill_tiny()
+        self.kill_server()
 
         for (i, filename) in enumerate(self.FILES):
             dst_path_proxy = os.path.join(self.proxy_dir,
@@ -668,7 +654,7 @@ class CacheTest(ProxyTest):
                 self.logger.warning('Error removing downloaded file "%s": %s' % \
                         (dst_path_proxy, str(e)))
 
-            url = 'http://%s:%d/%s' % (self.tiny_host, self.tiny_port, filename)
+            url = 'http://%s:%d/%s' % (self.server_host, self.server_port, filename)
 
             proxy_proc = self.download_proxy(url, dst_path_proxy, 10)
             proxy_proc.wait()
@@ -684,36 +670,37 @@ class CacheTest(ProxyTest):
         self.attempts = len(tried)
         self.successes = successes
 
-class ExtendedConcurrencyProxyTest(ProxyTest):
-    FILES = ['cgi-bin/slow?sleep=1&size=4096', 'home.html']
+class GenericConcurrencyProxyTest(ProxyTest):
+    FILES = ['cgi-bin/slow?sleep=1&size=4096', 'foo.html']
     SLOW_FILE = 'cgi-bin/slow?sleep=1&size=4096'
-    FAST_FILE = 'home.html'
+    FAST_FILE = 'foo.html'
     DESCRIPTION = 'Extended Concurrency Test'
     EXTENDED_DESCRIPTION = \
             'Issuing 5 fast requests to the proxy, while it is busy ' + \
             'handling 5 slow requests that were issued first.'
 
+    TIMES_TO_RUN = None
+    TIMEOUT = 10
+
     download_proxy = ProxyTest._download_proxy
     download_proxy_slow = ProxyTest._download_proxy_slow
 
     def run(self):
-        times_to_run = 5
-        timeout = 10
 
         # Now do the test by fetching some text and binary files directly from
         # Tiny and via the proxy, and then comparing the results.
         tried_slow = []
         i = 0
-        for i in range(i, times_to_run):
+        for i in range(i, self.TIMES_TO_RUN):
             dst_path_proxy = os.path.join(self.proxy_dir,
                     '%s-%d' % (self._filesystem_safe(self.SLOW_FILE), i))
             dst_path_noproxy = os.path.join(self.noproxy_dir,
                     '%s-%d' % (self._filesystem_safe(self.SLOW_FILE), i))
             url = 'http://%s:%d/%s&i=%d' % \
-                    (self.tiny_host, self.tiny_port, self.SLOW_FILE, i)
+                    (self.server_host, self.server_port, self.SLOW_FILE, i)
 
-            proxy_proc = self.download_proxy_slow(url, dst_path_proxy, timeout)
-            noproxy_proc = self.download_noproxy(url, dst_path_noproxy, timeout)
+            proxy_proc = self.download_proxy_slow(url, dst_path_proxy, self.TIMEOUT)
+            noproxy_proc = self.download_noproxy(url, dst_path_noproxy, self.TIMEOUT)
 
             tried_slow.append((proxy_proc, noproxy_proc, dst_path_proxy, dst_path_noproxy))
 
@@ -723,16 +710,16 @@ class ExtendedConcurrencyProxyTest(ProxyTest):
         self.num_threads_realtime = self.get_num_threads(self.proxy_proc.pid)
 
         tried = []
-        for i in range(times_to_run, times_to_run * 2):
+        for i in range(self.TIMES_TO_RUN, self.TIMES_TO_RUN * 2):
             dst_path_proxy = os.path.join(self.proxy_dir,
                     '%s-%d' % (self._filesystem_safe(self.FAST_FILE), i))
             dst_path_noproxy = os.path.join(self.noproxy_dir,
                     '%s-%d' % (self._filesystem_safe(self.FAST_FILE), i))
             url = 'http://%s:%d/%s?i=%d' % \
-                    (self.tiny_host, self.tiny_port, self.FAST_FILE, i)
+                    (self.server_host, self.server_port, self.FAST_FILE, i)
 
-            proxy_proc = self.download_proxy(url, dst_path_proxy, timeout)
-            noproxy_proc = self.download_noproxy(url, dst_path_noproxy, timeout)
+            proxy_proc = self.download_proxy(url, dst_path_proxy, self.TIMEOUT)
+            noproxy_proc = self.download_noproxy(url, dst_path_noproxy, self.TIMEOUT)
 
             tried.append((proxy_proc, noproxy_proc, dst_path_proxy, dst_path_noproxy))
 
@@ -742,7 +729,7 @@ class ExtendedConcurrencyProxyTest(ProxyTest):
             noproxy_proc.wait()
 
         successes = 0
-        for i in range(times_to_run):
+        for i in range(self.TIMES_TO_RUN):
             (proxy_proc_s, noproxy_proc_s, dst_path_proxy_s, dst_path_noproxy_s) = tried_slow[i]
             (proxy_proc, noproxy_proc, dst_path_proxy, dst_path_noproxy) = tried[i]
             same_s = self._are_same(dst_path_noproxy_s, dst_path_proxy_s)
@@ -751,8 +738,24 @@ class ExtendedConcurrencyProxyTest(ProxyTest):
             if same_s and same and fast_before_slow:
                 successes += 1
 
-        self.attempts = times_to_run
+        self.attempts = self.TIMES_TO_RUN
         self.successes = successes
+
+class BasicConcurrencyProxyTest(GenericConcurrencyProxyTest):
+    DESCRIPTION = 'Basic Concurrency Test'
+    EXTENDED_DESCRIPTION = \
+            'Issuing 1 fast request to the proxy, while it is busy ' + \
+            'handling 1 slow request that was issued first.'
+
+    TIMES_TO_RUN = 1
+
+class ExtendedConcurrencyProxyTest(GenericConcurrencyProxyTest):
+    DESCRIPTION = 'Extended Concurrency Test'
+    EXTENDED_DESCRIPTION = \
+            'Issuing 5 fast requests to the proxy, while it is busy ' + \
+            'handling 5 slow requests that were issued first.'
+
+    TIMES_TO_RUN = 5
 
 def main():
     parser = argparse.ArgumentParser()
@@ -773,9 +776,9 @@ def main():
     parser.add_argument('-p', '--proxy-output', type=argparse.FileType('wb'),
             action='store', metavar='<file>',
             help='Send proxy-output to a file (Use "-" for stdout).')
-    parser.add_argument('-t', '--tiny-output', type=argparse.FileType('wb'),
+    parser.add_argument('-t', '--server-output', type=argparse.FileType('wb'),
             action='store', metavar='<file>',
-            help='Send tiny output to a file (Use "-" for stdout).')
+            help='Send server output to a file (Use "-" for stdout).')
     parser.add_argument('-k', '--keep-files', action='store_const', const=True, default=False,
             help='Don\'t delete files used for proxy/no-proxy downloads.')
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -813,7 +816,7 @@ def main():
             mem_mgmt=args.check_memory_mgmt,
             clean_shutdown=args.check_clean_shutdown,
             keep_files=args.keep_files,
-            tiny_output=args.tiny_output,
+            server_output=args.server_output,
             proxy_output=args.proxy_output,
             verbose=args.verbose)
     p.run()

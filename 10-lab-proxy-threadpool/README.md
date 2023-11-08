@@ -24,19 +24,22 @@ programming by building a working HTTP proxy server with a threadpool.
    - [Reading](#reading)
  - [Instructions](#instructions)
    - [Part 1 - HTTP Request Parsing](#part-1---http-request-parsing)
-     - [`all_headers_received`](#all_headers_received)
+     - [`complete_request_received`](#complete_request_received)
      - [`parse_request`](#parse_request)
-     - [Testing](#testing)
+     - [Checkpoint 1](#checkpoint-1)
    - [Part 2 - Sequential HTTP Proxy](#part-2---sequential-http-proxy)
      - [Receiving the HTTP Request](#receiving-the-http-request)
+     - [Checkpoint 2](#checkpoint-2)
      - [Creating an HTTP Request](#creating-an-http-request)
+     - [Checkpoint 3](#checkpoint-3)
      - [Communicating with the HTTP Server](#communicating-with-the-http-server)
+     - [Checkpoint 4](#checkpoint-4)
      - [Returning the HTTP Response](#returning-the-http-response)
-     - [Testing](#testing-1)
+     - [Checkpoint 5](#checkpoint-5)
    - [Part 3 - Threaded HTTP Proxy](#part-3---threaded-http-proxy)
-     - [Testing](#testing-2)
+     - [Checkpoint 6](#checkpoint-6)
    - [Part 4 - Threadpool](#part-4---threadpool)
-     - [Testing](#testing-3)
+     - [Checkpoint 7](#checkpoint-7)
  - [Testing](#testing-4)
    - [Manual Testing - Non-Local Server](#manual-testing---non-local-server)
    - [Manual Testing - Local Server](#manual-testing---local-server)
@@ -47,9 +50,9 @@ programming by building a working HTTP proxy server with a threadpool.
 
 # Overview
 
-A Web proxy is a program that acts as a intermediary between an HTTP client
+An HTTP proxy is a program that acts as a intermediary between an HTTP client
 (i.e., a Web browser) and an HTTP server.  Instead of requesting a resource
-directly from the HTTP server, the HTTP client contacts the proxy server,
+directly from the HTTP server, the HTTP client contacts the HTTP proxy,
 which forwards the request on to the HTTP server. When the HTTP server replies
 to the proxy, the proxy sends the reply on to the browser.  In this way, the
 client acts as both a *server* (to the Web browser) and a *client* (to the HTTP
@@ -59,9 +62,10 @@ Proxies are useful for many purposes.  Sometimes proxies are used in firewalls,
 so that browsers behind a firewall can only contact a server beyond the
 firewall via the proxy.  Proxies can also act as anonymizers: by stripping
 requests of all identifying information, a proxy can make the browser anonymous
-to Web servers.  Proxies can even be used to cache web objects by storing local
-copies of objects from servers then responding to future requests by reading
-them out of its cache rather than by communicating again with remote servers.
+to HTTP servers.  Proxies can even be used to cache web objects by storing
+local copies of objects from servers then responding to future requests by
+reading them out of its cache rather than by communicating again with remote
+servers.
 
 In this lab, you will write a simple HTTP proxy objects.  For the first part of
 the lab, you will set up the proxy to accept incoming connections, read and
@@ -105,39 +109,39 @@ assignment:
 
 ## Part 1 - HTTP Request Parsing
 
-The first step in building an HTTP proxy server is parsing an incoming HTTP
+The first step in building an HTTP proxy is parsing an incoming HTTP
 request.  Some skeleton functions have been created for you in `proxy.c`,
-namely `all_headers_received()` and `parse_request()`.  These are provided in
-the case they are helpful for you, but you not are required to use them; if it
-is more intuitive for you to complete this in another way, you are welcome to
-do that.
+namely `complete_request_received()` and `parse_request()`.  These are provided
+in the case they are helpful for you, but you not are required to use them; if
+it is more intuitive for you to complete this in another way, you are welcome
+to do that.
 
-These functions will be used by your proxy server to know when a client is done
-sending its request and to parse the request.  You will find the string
-functions (man `string`) very useful for this, including `strcpy()`,
-`strstr()`, `strchr()`, and more!
+These functions will be used by your HTTP proxy to know when a client is done
+sending its request and to parse the request.
 
 
-### `all_headers_received()`
+### `complete_request_received()`
 
-`all_headers_received()` takes the following as an argument:
+`complete_request_received()` takes the following as an argument:
  - `char *request`: a (null-terminated) string containing an HTTP request.
 
 This function tests whether or not the HTTP request associated with `request`
-contains all the headers that were intended to be sent.  This is not actually a
-matter of checking the headers themselves but of checking for the
-end-of-headers sequence, `\r\n\r\n`.  It returns 1 if all headers have been
-received (i.e., end-of-headers sequence is found) and 0 otherwise.
-
-In this lab, all requests will consist of only first line and one or more HTTP
-headers; there will be no request body.
+is complete.  In this lab, all requests will consist of only first line and one
+or more HTTP headers; there will be no request body.  Thus, this function
+should simply be checking for the end-of-headers sequence, `"\r\n\r\n"`.  It
+returns 1 if that sequence is found (i.e., the request is complete) and 0
+otherwise.  It is recommended that you use `strstr()` to check for the presence
+of this value.
 
 
 ### `parse_request()`
 
-`parse_request()` takes the following as an arguments:
+`parse_request()` parses the complete HTTP request and stores the components in
+strings that can be used to modify the request and issue it to the HTTP server.
+The function takes the following as arguments:
+
  - `char *request`: a (null-terminated) string containing an HTTP request.
- - `char *method`: a string to which the method, extracted from the URL, is
+ - `char *method`: a string to which the method, extracted from the request, is
    copied.
  - `char *hostname`: a string to which the hostname, extracted from the URL, is
    copied.
@@ -147,11 +151,10 @@ headers; there will be no request body.
  - `char *path`: a string to which the path, extracted from the URL, is
    copied.  The path should include not only the file path, but also the query
    string, if any.
- - `char *headers`: a string to which the headers (i.e., all lines after the
-   first line) are copied.
 
 Your `parse_request()` method does not have to support every possible use case.
-For the purposes of this lab, you can use the following simplified rules:
+For the purposes of this lab, URLs will be well-formed.  You can use the
+following simplified rules:
 
  - For an HTTP request:
    - All characters from the beginning of the string up to (but not including)
@@ -161,6 +164,7 @@ For the purposes of this lab, you can use the following simplified rules:
    - All characters after the first line (i.e., after the first `\r\n`
      sequence) comprise the _headers_.  You do not need to further parse the
      headers.
+
  - For the URL extracted from the HTTP request:
    - If there is a colon `:` in the URL _after_ the `://`, then:
      - the digits immediately following the colon comprise the _port_;
@@ -176,6 +180,35 @@ For the purposes of this lab, you can use the following simplified rules:
 
        Note that the query string (the key-value pairs following `?`) can be
        included as part of the path for this lab.
+
+A recommended approach for parsing HTTP request is to isolate different parts
+of the request by finding the start and end patterns for each component using
+`strstr()`.  Here are some examples to get you started.
+
+```c
+char method[16];
+// The first thing to extract is the method, which is at the beginning of the
+// request, so we point beginning_of_thing to the start of req.
+char *beginning_of_thing = req;
+// Remember that strstr() relies on its first argument being a string--that
+// is, that it is null-terminated.
+char *end_of_thing = strstr(beginning_of_thing, " ");
+// At this point, end_of_thing is either NULL if no space is found or it points
+// to the space.  Because your code will only have to deal with well-formed
+// HTTP requests for this lab, you won't need to worry about end_of_thing being
+// NULL.  But later uses of strstr() might require a conditional, such as when
+// searching for a colon to determine whether or not a port was specified.
+//
+// Copy the first n (end_of_thing - beginning_of_thing) bytes of
+// req/beginning_of_things to method.
+strncpy(method, beginning_of_thing, end_of_thing - beginning_of_thing);
+// Move beyond the first space, so beginning_of_thing now points to the start
+// of the URL.
+beginning_of_thing = end_of_thing + 1;
+// Continue this pattern to get the URL, and then extract the components of the
+// URL the same way.
+...
+```
 
 
 ### Testing
@@ -197,6 +230,14 @@ Then run the following to see that it behaves as you would expect it to:
 ./proxy
 ```
 
+
+### Checkpoint 1
+
+Use output from your print statements to verify that your code has extracted
+the components of the HTTP request properly.
+
+Now would be a good time to save your work, if you haven't already.
+
 At this point, remove or comment out the call to `test_parser()` in `main()`;
 it was just used for testing.
 
@@ -205,7 +246,8 @@ it was just used for testing.
 
 As you implement this section, you might find it helpful to refer to the TCP
 code from the
-[sockets homework assignment](../07-hw-sockets).
+[sockets homework assignment](../07-hw-sockets) and the
+[HTTP homework assignment](../09a-hw-http).
 
 
 ### Receiving the HTTP Request
@@ -225,7 +267,7 @@ Write functions for each of the following:
      ```
 
      While this might seem like a bad idea, during development of your proxy
-     server, it will allow you to immediately restart your proxy server after
+     server, it will allow you to immediately restart your HTTP proxy after
      failure, rather than having to wait for it to time out.
 
    - `bind()` it to a port passed as the first argument from the
@@ -236,10 +278,17 @@ Write functions for each of the following:
    `accept()`, handle a client HTTP request.  For now, just have this method do
    the following:
    - Read from the socket into a buffer until the entire HTTP request has been
-     received (again, there is no request body in this lab, so this is
-     basically just end of headers).  Use the `parse_request()` function for this.
-   - Print out the values from the HTTP request, once you have received it in
-     its entirety (e.g., like `test_parser()` does).
+     received.  Again, there is no request body in this lab, so this is
+     basically just the end of headers.
+   - Print out the HTTP request using `print_bytes()`.  This will allow you to
+     see the entire request.
+   - Add a null-terminator to the HTTP request, and pass it to the
+     `parse_request()` function, allowing it to extract the individual values
+     associated with the request.
+   - Print out the components of the HTTP request, once you have received it in
+     its entirety (e.g., like `test_parser()` does).  This includes the method,
+     hostname, port, and path.  Because these should all be null-terminated
+     strings of type `char []`, you can use `printf()`.
    - Close the socket.
    Later will you replace printing the values with more meaningful
    functionality. This first part is just to get you going in the right
@@ -251,7 +300,7 @@ loop to do the following:
  - call `handle_client()` to handle the connection
 
 At this point, there are no threads, no concurrency, and no HTTP response.
-But you should be able to get a sense for how your proxy server is progressing.
+But you should be able to get a sense for how your HTTP proxy is progressing.
 
 Run the following to build your proxy:
 
@@ -266,74 +315,68 @@ that of another user:
 ./port-for-user.pl
 ```
 
-Then run the following to start your proxy server:
+Then run the following to start your HTTP proxy:
+
+(Replace "port" with the port returned by `./port-for-user.pl`.)
 
 ```bash
 ./proxy port
 ```
 
-Replace `port` with the port returned by `./port-for-user.pl`.
+Next you will use the `curl` command-line HTTP client to test your code.
+`curl` is described more in the [HTTP homework assignment](../09a-hw-http).
+For the purposes of this section, `curl` creates and sends an HTTP request to
+your HTTP proxy, which is designated with `-x`.
 
-Now, from another terminal on the same machine, run the following:
+The `./slow-client.py` script  acts like `curl`, but it spreads its HTTP
+request over several calls to `send()` to test the robustness of your proxy
+server in reading from a byte stream.  The `-b` option designates the amount of
+time (in seconds) that it will sleep in between lines that it sends.
+
+From another terminal on the same machine, run the following:
 
 (NOTE: the commands below are expected to _fail_ at this point, in part because
-your proxy server implementation is incomplete.  The commands are merely a way
-to see how your proxy server behaves with its current, incomplete
-functionality.)
+your HTTP proxy implementation is incomplete.  The commands are merely a way
+to see how your HTTP proxy behaves with its current, incomplete
+functionality.  What is important is the proxy output, showing that you have
+parsed things correctly.)
 
-(Replace `port` with the port on which your proxy server is listening.)
+(Replace "port" with the port on which your HTTP proxy is listening.)
 
-```bash
-curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu:5599/cgi-bin/slowsend.cgi?obj=lyrics"
-```
 ```bash
 curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
-
-`curl` is a command-line HTTP client, described more in
-[the section on manual testing](#manual-testing---non-local-server).
-For the purposes of this section, `curl` creates and sends an HTTP request to
-your proxy server, which is designated with `-x`.
-
-Note that the request to `www-notls.imaal.byu.edu:5599` is included here and in
-later tests only to test that your proxy server can properly parse the
-non-default HTTP port.  However, that particular server and port will not be
-part of tests that require your proxy server to actually connect to a Web
-server because there is no Web server listening there.
-
-Your proxy server (i.e., in `handle_client()`) should indicate that it has
-received the client request by printing out the appropriate parts of the
-request.  If it does not, now is the time to fix it.
-
-Now try the following:
-
-(NOTE: the commands below are still expected to fail.)
-
-(Replace `port` with the port on which your proxy server is listening.)
-
 ```bash
-./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu:5599/cgi-bin/slowsend.cgi?obj=lyrics"
+curl -x http://localhost:port/ "http://localhost:5599/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
 ```bash
 ./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
+```bash
+./slow-client.py -x http://localhost:port/ -b 1 "http://localhost:5599/cgi-bin/slowsend.cgi?obj=lyrics"
+```
 
-The `./slow-client.py` script is also described more in
-[the section on manual testing](#manual-testing---non-local-server).
-For the purposes of this section, it acts like `curl`, but it spreads its HTTP
-request over several calls to `send()`.
 
-Again, your proxy server (i.e., in `handle_client()`) should indicate that it
-has received the client request by printing out the appropriate parts of the
-request.  If it does not, now is the time to fix it.
+### Checkpoint 2
+
+Use output from your print statements to verify that 1) your HTTP proxy has
+received the entire HTTP request and 2) your HTTP proxy has extracted the
+components of the HTTP request properly.  This is particularly important in
+this section because `slow-client.py` _guarantees_ that you will not have
+received the entire HTTP request with your first call to `recv()`.  Make sure
+that every byte of the printed values makes sense.  If not, now is the time to
+fix it.
+
+Now would be a good time to save your work, if you haven't already.
 
 
 ### Creating an HTTP Request
 
-Now that you proxy server has received the entire HTTP request, you can modify
+Now that your HTTP proxy has received the entire HTTP request, you can modify
 your `handle_client()` code to create the HTTP request to send to the server.
-The HTTP request your proxy received from the client looked something like
-this:
+This request will be slightly different from the one your HTTP proxy received
+from the client.  The HTTP request your proxy received from the client looked
+something like this:
 
 ```
 GET http://www-notls.imaal.byu.edu:5599/cgi-bin/slowsend.cgi?obj=lyrics HTTP/1.1
@@ -345,14 +388,14 @@ User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:97.0) Gecko/2010010
 (Some things will differ, like the "User-Agent" header, which identfies your
 client, and the port used.)
 
-It is appropriate to send a *full url* to a *proxy* server, but when sending
-directly to the *HTTP server*, sending just the *path* (including query string)
-is appropriate.  Also, the protocol should be changed to HTTP/1.0, and the
-"Connection" and "Proxy-Connection" headers added.  These further enforce
-HTTP/1.0 behavior, which is discussed in the
+The _HTTP proxy_ requires the client to send a _full URL_.  However, an
+_HTTP server_ requires the client to only send the _path_ (including query
+string).  Additionally, the HTTP proxy will only use protocol HTTP/1.0, and
+the "Connection" and "Proxy-Connection" headers should be added.  These further
+enforce HTTP/1.0 behavior, which is discussed in the
 [next section](#communicating-with-the-http-server).
 
-Here is an example:
+Here is an example of the modified request:
 
 ```
 GET /cgi-bin/slowsend.cgi?obj=lyrics HTTP/1.0
@@ -363,29 +406,31 @@ Proxy-Connection: close
 
 ```
 
-To simplify your request parsing and creation, you *may* simply replace *all*
-headers that were sent by the client and create your own `Host`, `User-Agent`,
-`Connection`, and `Proxy-Connection` headers, as shown above.  A sample value
-for `User-Agent` is provided in your `proxy.c` file.  The value for the `Host`
+To simplify your request parsing and creation, you may simply replace _all_
+headers that were sent by the client and create your own "Host", "User-Agent",
+"Connection", and "Proxy-Connection" headers, as shown above.  A sample value
+for "User-Agent" is provided in your `proxy.c` file.  The value for the "Host"
 field will be either `hostname:port` or simply `hostname`, if the port is the
 default HTTP port.  For example:
+
 ```
 Host: www-notls.imaal.byu.edu:5599
 ```
+
 or
+
 ```
 Host: www-notls.imaal.byu.edu
 ```
 In the second example, port 80 is implied.
 
 In summary, for the new HTTP request that was created:
-- The *URL* in the first line, as received from the client, was changed to be a
-  *path* (plus query string).
-- The protocol is always HTTP/1.0 (this simplifies the client-server
+- The URL in the first line, as received from the client, was changed to be a
+  path (plus query string).
+- The protocol is always "HTTP/1.0" (this simplifies the client-server
   interaction for the purposes of this lab).
-- The "Connection" and "Proxy-Connection" headers are added.
-- The headers from the client may be completely replaced with `Host`,
-  `User-Agent`, `Connection`, and `Proxy-Connection` headers that are generated
+- The headers from the client may be completely replaced with "Host",
+  "User-Agent", "Connection", and "Proxy-Connection" headers that are generated
   by the proxy, for simplicity.
 
 Remember that all lines in an HTTP request end with a carriage-return-newline
@@ -393,13 +438,14 @@ sequence, `\r\n`, and the HTTP request headers are ended with
 the end-of-headers sequence, `\r\n\r\n` (i.e., a blank line after the last
 header).
 
-Use `printf()` and/or `print_bytes()` to print out the HTTP request you
-created.  Then re-build and re-start your proxy, and make sure it works
-properly when you run the following:
+Use `print_bytes()` to print out the HTTP request you created.  Then re-build
+and re-start your proxy, and make sure it works properly when you run the
+following:
 
-(NOTE: the commands below are still expected to fail.)
+(NOTE: the commands below are still expected to fail.  This is just to test
+your HTTP request.)
 
-(Replace `port` with the port on which your proxy server is listening.)
+(Replace "port" with the port on which your HTTP proxy is listening.)
 
 ```bash
 curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu:5599/cgi-bin/slowsend.cgi?obj=lyrics"
@@ -408,11 +454,22 @@ curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu:5599/cgi-bin/slow
 curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
 ```bash
-./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu:5599/cgi-bin/slowsend.cgi?obj=lyrics"
-```
-```bash
 ./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
+```bash
+./slow-client.py -x http://localhost:port/ -b 1 "http://localhost:5599/cgi-bin/slowsend.cgi?obj=lyrics"
+```
+
+
+### Checkpoint 3
+
+Use output from your print statements to verify that your HTTP proxy has
+successfully created the HTTP request that it will send to the server, based on
+the HTTP request that it received from the client.  Check for every character,
+including the final `\r\n\r\n`.  If things don't check out, now is the time to
+fix things.
+
+Now would be a good time to save your work, if you haven't already.
 
 
 ### Communicating with the HTTP Server
@@ -420,13 +477,14 @@ curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.
 With the modified HTTP request prepared, you can now communicate with the HTTP
 server.  Modify your `handle_client()` function again:
 
- - Use `getaddrinfo()` and `connect()` to create a *new* socket and establish a
-   connection with the HTTP server (i.e., the host and port specified by the
-   client in its request).  This does not replace the socket with the client;
-   the proxy server is now communicating with both client *and* server
-   concurrently, using a dedicated socket for each connection.
- - Send the updated HTTP request over the socket connected to the server.
- - Receive the HTTP response from the server.  Just like when the proxy server
+ - Use `getaddrinfo()` and `connect()` to create a *new* TCP (`SOCK_STREAM`)
+   socket and establish a connection with the HTTP server (i.e., the host and
+   port specified by the client in its request).  This does not replace the
+   socket with the client; the HTTP proxy is now communicating with both
+   client *and* server concurrently, using a dedicated socket for each
+   connection.
+ - Send the newly created HTTP request over the socket connected to the server.
+ - Receive the HTTP response from the server.  Just like when the HTTP proxy
    received the request from the client, the proxy will need to loop and
    continue reading from the server socket until the entire response has been
    received.
@@ -435,7 +493,7 @@ server.  Modify your `handle_client()` function again:
    over a given TCP connection.  Thus, when the server has sent all it has to
    send (the entire HTTP response), it closes the connection--as opposed to
    waiting for another HTTP request.  An HTTP/1.0 client (in this case, the
-   proxy server) therefore knows when it has received the entire HTTP response
+   HTTP proxy) therefore knows when it has received the entire HTTP response
    when `read()` or `recv()` returns 0 (i.e., the indicator that the other side
    has called `close()` on the socket).
 
@@ -443,15 +501,22 @@ server.  Modify your `handle_client()` function again:
    higher) might exchange several request-response transactions over the same
    TCP connection, which case, the "Content-Length" header (and/or other modern
    conventions) would need to be consulted to determine when the server was
-   finished sending a given response.  But again, for *this* lab, that is not
-   necessary.
+   finished sending a given response.  But again, for _this_ lab, that is not
+   necessary.  It is sufficient to stop reading when `read()` or `recv()`
+   returns 0.
+ - Print out the HTTP response using `print_bytes()`.  This will allow you to
+   see the entire response.
  - Close the socket associated with the HTTP server.
 
-Use `printf()` and/or `print_bytes()` to print out the HTTP response you
-receive from the server.  Then re-build and re-start your proxy, and make sure
-it works properly when you run the following:
+Now re-build and re-start your proxy, and make sure it works properly when you
+run the following:
 
 (NOTE: the commands below are still expected to fail.)
+
+(Replace "port" with the port on which your HTTP proxy is listening.  Note also
+that the URLs containing "localhost:5599" have been removed.  Those were for
+testing the parsing of HTTP requests, but there is currently no HTTP server
+lisening on localhost:5599.)
 
 ```bash
 curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
@@ -460,11 +525,17 @@ curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.
 ./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
 
-(Replace `port` with the port on which your proxy server is listening.  Also
-note that the request to `www-notls.imaal.byu.edu:5599` is not included in
-these latest tests. That URL was only used to make sure your proxy could parse
-a non-standard port, which functionality will be useful later.  However,
-www-notls.imaal.byu.edu has no service listening on port 5599!)
+
+### Checkpoint 4
+
+Use output from your print statements to verify that your HTTP proxy has
+received the entire HTTP response from the HTTP server.  This is particularly
+important in this section because `/cgi-bin/slowsend.cgi` _guarantees_ that you
+will not have received the entire HTTP response with your first call to
+`recv()`.  Make sure that every byte of the printed values makes sense.  If
+not, now is the time to fix it.
+
+Now would be a good time to save your work, if you haven't already.
 
 
 ### Returning the HTTP Response
@@ -476,26 +547,25 @@ Your proxy is using HTTP/1.0, so there will be no further HTTP requests over
 the existing connection.
 
 
-### Testing
+### Checkpoint 5
 
 At this point you should be able to pass:
- - [Tests performed against a non-local Web server](#manual-testing---non-local-server).
- - [Tests performed against a local Web server](#manual-testing---local-server).
+ - [Tests performed against a non-local HTTP server](#manual-testing---non-local-server).
+ - [Tests performed against a local HTTP server](#manual-testing---local-server).
  - [Automated tests](#automated-testing) with the following command:
    ```bash
-   ./driver.py -b 50 threadpool
+   ./driver.py -b 60 threadpool
    ```
 
 
 ## Part 3 - Threaded HTTP Proxy
 
-Once you have a working sequential HTTP proxy server, alter it to
-handle multiple requests concurrently by spawning a new thread per client.
-Formulate your main loop so that every time a new client connects (i.e.,
-`accept()` returns) `pthread_create()` is called.  You will want to define a
-thread function that is *passed to* `pthread_create()` (i.e., its third
-argument) and *calls* `handle_client()`,  after which it waits for a new
-client.
+Once you have a working sequential HTTP proxy, alter it to handle multiple
+requests concurrently by spawning a new thread per client.  Formulate your main
+loop so that every time a new client connects (i.e., `accept()` returns)
+`pthread_create()` is called.  You will want to define a thread function that
+is *passed to* `pthread_create()` (i.e., its third argument) and calls
+`handle_client()`,  after which it waits for a new client.
 
 Note that with this particular thread paradigm, you should run your threads in
 detached mode to avoid memory leaks.  When a new thread is spawned, you
@@ -505,18 +575,18 @@ pthread_detach(pthread_self());
 ```
 
 Refer to the
-[concurrency homework assignment](../09a-hw-concurrency)
+[concurrency homework assignment](../09b-hw-concurrency)
 for examples and code that you can integrate.
 
 
-### Testing
+### Checkpoint 6
 
 At this point you should be able to pass:
- - [Tests performed against a non-local Web server](#manual-testing---non-local-server).
- - [Tests performed against a local Web server](#manual-testing---local-server).
+ - [Tests performed against a non-local HTTP server](#manual-testing---non-local-server).
+ - [Tests performed against a local HTTP server](#manual-testing---local-server).
  - [Automated tests](#automated-testing) with the following command:
    ```bash
-   ./driver.py -b 50 -c 45 multithread
+   ./driver.py -b 60 -c 35 multithread
    ```
 
 
@@ -537,18 +607,18 @@ instead of handling a single client, it continually loops, waiting on new
 clients from the shared buffer (queue) and handling them in turn.
 
 Again, refer to the
-[concurrency homework assignment](../09a-hw-concurrency)
+[concurrency homework assignment](../09b-hw-concurrency)
 for examples and code that you can integrate.
 
 
-### Testing
+### Checkpoint 7
 
 At this point you should be able to pass:
- - [Tests performed against a non-local Web server](#manual-testing---non-local-server).
- - [Tests performed against a local Web server](#manual-testing---local-server).
+ - [Tests performed against a non-local HTTP server](#manual-testing---non-local-server).
+ - [Tests performed against a local HTTP server](#manual-testing---local-server).
  - [Automated tests](#automated-testing) with the following command:
    ```bash
-   ./driver.py -b 50 -c 45 threadpool
+   ./driver.py -b 60 -c 35 threadpool
    ```
 
 
@@ -556,21 +626,35 @@ At this point you should be able to pass:
 
 Some tools are provided for testing--both manual and automated:
 
- - The code for the `tiny` Web server
+ - A python-based HTTP server
  - A driver for automated testing
 
 
 ## Manual Testing - Non-Local Server
 
-Testing your proxy server against a production Web server will help check its
-functionality.  To test basic, sequential HTTP proxy functionality, first run the
-following to start your proxy server:
+Testing your HTTP proxy against a production HTTP server will help check its
+functionality.  To test basic, sequential HTTP proxy functionality, first run
+the following to start your HTTP proxy:
 
 ```bash
 ./proxy port
 ```
 
-Then in another window on the same machine, run the following:
+`curl` is a command-line HTTP client, described more in the
+[HTTP homework assignment](../09a-hw-http).
+For the purposes of this section, `curl` creates and sends an HTTP request to
+your HTTP proxy, which is designated with `-x`.  
+
+The `./slow-client.py` script  acts like `curl`, but it spreads its HTTP
+request over several calls to `send()` to test the robustness of your proxy
+server in reading from a byte stream.  The `-b` option designates the amount of
+time (in seconds) that it will sleep in between lines that it sends.
+
+The `-o` option tells `curl` and `slow-client.py` to save the contents of the
+requested URL to the specified file (e.g., `tmp1`, `tmp2`, etc.), rather than
+printing the contents to standard output.
+
+In another window on the same machine, run the following:
 
 ```bash
 curl -o tmp1 http://www-notls.imaal.byu.edu/index.html
@@ -588,19 +672,13 @@ curl -o tmp3 "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 curl -o tmp5 http://www-notls.imaal.byu.edu/images/imaal-80x80.png
 ```
 
-`curl` is a command-line HTTP client.  The `-o` option tells `curl` to save the
-contents of the requested URL to the specified file (e.g., `tmp1`, `tmp2`,
-etc.), rather than printing the contents to standard output.
-
-The `./slow-client.py` script does the same thing that `curl` does (including
-use of the `-o` option), but it spreads out the HTTP request over several
-`send()` calls to test the robustness of your proxy server in reading from a
-byte stream.  The `-b` option designates the amount of time (in seconds) that
-it will sleep in between lines that it sends.
+At this point, the files `tmp1` through `tmp5` contain the contents returned by
+`curl` retrieving the contents directly from the HTTP servers specified, i.e.,
+without going through an HTTP proxy.
 
 Now run the following:
 
-(Replace `port` with the port on which your proxy server is running.)
+(Replace "port" with the port on which your HTTP proxy is running.)
 
 ```bash
 curl -o tmp1p -x http://localhost:port/ http://www-notls.imaal.byu.edu/index.html
@@ -618,9 +696,14 @@ curl -o tmp3p -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/
 curl -o tmp5p -x http://localhost:port/ http://www-notls.imaal.byu.edu/images/imaal-80x80.png
 ```
 
-This time we used `-x` to specify a proxy server.
+Because we used `-x` to designate an HTTP proxy, the files `tmp1p` through
+`tmp5p` now contain the contents returned by `curl` retrieving the contents
+from the HTTP servers through an HTTP proxy--your HTTP proxy!
 
-Finally, run the following to see if there are any differences (there should not be):
+Using the `diff` command, we can see if there are any differences between the
+files received by communicating with the HTTP servers directly and those
+received from the HTTP servers through the HTTP proxy.  There should not be any
+differences.
 
 ```bash
 diff -u tmp1 tmp1p
@@ -647,56 +730,57 @@ rm tmp1 tmp1p tmp2 tmp2p tmp3 tmp3p tmp4 tmp4p tmp5 tmp5p
 
 ## Manual Testing - Local Server
 
-While testing on "non-local" Web servers is useful, having a copy of the code
-for `tiny` is helpful for testing right on your local machine.  To use `tiny`
-for testing:
+While testing on "non-local" HTTP servers is useful, using a local HTTP server
+is helpful for testing right on your local machine.  To use a python-based HTTP
+server for testing:
 
- 1. Enter the `tiny` sub-directory:
-    ```bash
-    cd tiny
+ 1. Compile the CGI program in the `www/cgi-bin` sub-directory:
+
+    ```
+    make -C www/cgi-bin/
     ```
 
- 2. Compile `tiny`:
-    ```bash
-    make
+    Note: using the `-C` option with `make` changes the directory on which to
+    operate from the current directory to the one specified.
+
+ 2. Start the HTTP server:
+
+    (Replace "port2" with the port returned by `./port-for-user.pl` -- plus
+    one.  For example, if `./port-for-user.pl` returned 1234, then use 1235.
+    This allows you to use a *pair* of ports that are unlikely to conflict with
+    those of another user--one for your HTTP server and one for the HTTP
+    server.)
+
+    ```
+    python3 -m http.server -d www --cgi port2
     ```
 
-    Note: there are a number of compilation errors in the `tiny` code.  This is
-    a product of the textbook authors and needs some cleaning up, but you can
-    disregard them for the purposes of this lab.
+    See the [HTTP Homework](../09a-hw-http#preparation) for more information on
+    using this server.
 
- 3. Start `tiny`:
-    ```bash
-    ./tiny port2
-    ```
+ 3. While the HTTP server is running in one window or pane, start your proxy
+    server in another:
 
-    Replace `port2` with the port returned by `./port-for-user.pl` -- plus one.
-    For example, if `./port-for-user.pl` returned 1234, then use 1235.  This
-    allows you to use a *pair* of ports that are unlikely to conflict with
-    those of another user--one for your proxy server and one for the `tiny` Web
-    server.
-
- 4. While `tiny` is running in one window or pane, start your proxy server:
-
-    (Replace `port` with the port returned by `./port-for-user.pl`.)
+    (Replace "port" with the port returned by `./port-for-user.pl`.)
 
     ```bash
     ./proxy port
     ```
 
-With `tiny` running on one port (`port2`) and your proxy server running on
-another port (`port`), both on the same system, try running the following:
+With the HTTP server running on one port (`port2`) and your HTTP proxy
+running on another port (`port`), both on the same system, try running the
+following:
 
-(Replace `port2` with the port on which the `tiny` Web server is running.)
+(Replace "port2" with the port on which the HTTP server is running.)
 
 ```bash
-curl -o tmp1 http://localhost:port2/home.html
+curl -o tmp1 http://localhost:port2/foo.html
 ```
 ```bash
-curl -o tmp2 http://localhost:port2/csapp.c
+curl -o tmp2 http://localhost:port2/bar.txt
 ```
 ```bash
-curl -o tmp3 http://localhost:port2/godzilla.jpg
+curl -o tmp3 http://localhost:port2/socket.jpg
 ```
 ```bash
 curl -o tmp4 "http://localhost:port2/cgi-bin/slow?sleep=1&size=4096"
@@ -705,19 +789,19 @@ curl -o tmp4 "http://localhost:port2/cgi-bin/slow?sleep=1&size=4096"
 ./slow-client.py -o tmp5 "http://localhost:port2/cgi-bin/slow?sleep=1&size=4096"
 ```
 
-Then run the following:
+Now run the following:
 
-(Replace `port` with the port on which your proxy server is running and `port2`
-with the port on which the `tiny` Web server is running.)
+(Replace "port" with the port on which your HTTP proxy is running and "port2"
+with the port on which the HTTP server is running.)
 
 ```bash
-curl -o tmp1p -x http://localhost:port/ http://localhost:port2/home.html
+curl -o tmp1p -x http://localhost:port/ http://localhost:port2/foo.html
 ```
 ```bash
-curl -o tmp2p -x http://localhost:port/ http://localhost:port2/csapp.c
+curl -o tmp2p -x http://localhost:port/ http://localhost:port2/bar.txt
 ```
 ```bash
-curl -o tmp3p -x http://localhost:port/ http://localhost:port2/godzilla.jpg
+curl -o tmp3p -x http://localhost:port/ http://localhost:port2/socket.jpg
 ```
 ```bash
 curl -o tmp4p -x http://localhost:port/ "http://localhost:port2/cgi-bin/slow?sleep=1&size=4096"
@@ -726,7 +810,10 @@ curl -o tmp4p -x http://localhost:port/ "http://localhost:port2/cgi-bin/slow?sle
 ./slow-client.py -o tmp5p -x http://localhost:port/ "http://localhost:port2/cgi-bin/slow?sleep=1&size=4096"
 ```
 
-Now run the following to see if there are any differences (there should not be):
+Now use the `diff` command to see if there are any differences between the
+files received by communicating with the HTTP servers directly and those
+received from the HTTP servers through the HTTP proxy.  There should not be any
+differences.
 
 ```bash
 diff -u tmp1 tmp1p
@@ -757,7 +844,7 @@ For your convenience, a script is provided for automated testing.  You can use
 it by running the following:
 
 ```bash
-./driver.py -b 50 -c 45 threadpool
+./driver.py -b 60 -c 35 threadpool
 ```
 
 The `-b` option specifies the points awarded for basic HTTP functionality, and
@@ -765,12 +852,12 @@ the `-c` option specifies the points awarded for handling concurrent client
 requests.
 
 Basic HTTP functionality involves requesting text and binary content over HTTP
-via the proxy server, both from the local `tiny` Web server and non-local Web
+via the HTTP proxy, both from the local HTTP server and non-local HTTP
 servers, using both `curl` and `slow-client.py`  It downloads several resources
 directly and via the proxy and checks them just as shown previously.
 
 The concurrency test has two parts:
- - Issue a single request of the proxy server while it is busy with another
+ - Issue a single request of the HTTP proxy while it is busy with another
    request.
  - Issue five slow requests followed by five quick requests, to show that the
    fast requests are returned before the five slow requests.
@@ -780,30 +867,30 @@ For example:
  - *Basic Only*.  If you are just testing the basic functionality of your proxy
    (i.e., without concurrency), just use the `-b` option.
    ```bash
-   ./driver.py -b 50 threadpool
+   ./driver.py -b 60 threadpool
    ```
  - *Increased Verbosity.*  If you want more output, including descriptions of
    each test that is being performed, use `-v`:
    ```bash
-   ./driver.py -v -b 50 -c 45 threadpool
+   ./driver.py -v -b 60 -c 35 threadpool
    ```
    For even more output, including the commands that are being executed, use
    `-vv`:
    ```bash
-   ./driver.py -vv -b 50 -c 45 threadpool
+   ./driver.py -vv -b 30 -c 35 threadpool
    ```
  - *Proxy Output.*  If you want the output of your proxy to go to a file, which
    you can inspect either real-time or after-the-fact, use the `-p` option.
    Use `-p - ` for your proxy output to go to standard output.
    ```bash
-   ./driver.py -p myproxyoutput.txt -b 50 -c 45 threadpool
+   ./driver.py -p myproxyoutput.txt -b 60 -c 35 threadpool
    ```
  - *Downloaded Files.*  By default, the downloaded files are saved to a
    temporary directory, which is deleted after the tests finish--so your home
    directory does not get bloated.  If you want to keep these files to inspect
    them, use the `-k` option.
    ```bash
-   ./driver.py -k -b 50 -c 45 threadpool
+   ./driver.py -k -b 60 -c 35 threadpool
    ```
    If you use this option, be sure to delete the directors afterwards!
 
@@ -815,15 +902,14 @@ Any of the above options can be used together.
 Your score will be computed out of a maximum of 100 points based on the
 following distribution:
 
- - 50 for basic HTTP proxy functionality
- - 45 for handling concurrent HTTP proxy requests using a threadpool
- - 5 - compiles without any warnings (this applies to your proxy code, not
-   `tiny` and friends).
+ - 60 for basic HTTP proxy functionality
+ - 35 for handling concurrent HTTP proxy requests using a threadpool
+ - 5 - compiles without any warnings
 
 Run the following to check your implementation on one of the CS lab machines:
 
 ```b
-./driver.py -b 50 -c 45 threadpool
+./driver.py -b 60 -c 35 threadpool
 ```
 
 
