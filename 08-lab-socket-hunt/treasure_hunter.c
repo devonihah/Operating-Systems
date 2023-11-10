@@ -243,7 +243,6 @@ int main(int argc, char *argv[]) {
 			perror("read");
 			exit(EXIT_FAILURE);
 		}
-		//printf("received message\n");
 
 		//print_bytes(buf, nread);
 
@@ -254,8 +253,10 @@ int main(int argc, char *argv[]) {
 		chunk[chunk_len] = '\0';
 		unsigned char op_code = buf[chunk_len + 1];
 		unsigned short parameter = *((unsigned short*)(buf + chunk_len + 2));
-		printf("op_code: %x, parameter = %x\n", op_code, htons(parameter));
-		
+	
+		unsigned int nonce = *((unsigned int*)(buf + chunk_len + 4));
+		nonce = ntohl(nonce);
+
 		if ((unsigned int)op_code == 0x1) {
 			remote_addr_in.sin_port = parameter; //htons(parameter);
 		}
@@ -265,19 +266,40 @@ int main(int argc, char *argv[]) {
 			local_addr_in.sin_family = AF_INET;
 			local_addr_in.sin_port = parameter;
 			local_addr_in.sin_addr.s_addr = 0;
-			if (bind(sfd, (struct sockaddr*)&local_addr, sizeof(local_addr_in)) < 0) {
+			local_addr = (struct sockaddr *)&local_addr_in;
+			if (bind(sfd, local_addr, addr_len) < 0) {
 				perror("bind()");
 			}
 		}
+		else if ((unsigned int)op_code == 0x3) {
+			unsigned int port_sum = 0;
+			for (int i = 0; i < htons(parameter); ++i) {
+				unsigned char m_message[64];
+				bzero(buf, 64);
+				struct sockaddr_in new_addr;
+				new_addr.sin_family = AF_INET;
+				new_addr.sin_addr.s_addr = 0;
+				ssize_t nread = recvfrom(sfd, m_message, 64, 0, 
+						(struct sockaddr*) &new_addr, &addr_len);
+				if (nread == -1) {
+				    perror("recvfrom");
+				    exit(EXIT_FAILURE);
+				}
 
-		unsigned int nonce = *((unsigned int*)(buf + chunk_len + 4));
-		nonce = ntohl(nonce);
+				unsigned short remote_port = 
+					ntohs(new_addr.sin_port);
+				port_sum += (unsigned int)remote_port;
+			}
+			nonce = port_sum;
+		}
+		else if ((unsigned int)op_code == 0x4) {
+			
+		}
 		
 		treasure_len += chunk_len;
 		strcat(treasure, chunk);
 
 		nonce++;
-		//printf("nonce: %x\n", nonce);
 
 		if (!send_4_bytes) { 
 			message_len = 4;

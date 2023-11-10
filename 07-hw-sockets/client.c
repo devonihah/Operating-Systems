@@ -190,6 +190,39 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	printf("total_bytes_sent: %d\n", bytes_sent);
+	
+	
+	unsigned char output[16384];
+	int bytes_read_out, total_bytes_out = 0;
+	printf("before loop\n");
+	while ((bytes_read_out = read(sfd, output + total_bytes_out, 
+					sizeof(output) - total_bytes_out)) > 0) {
+		total_bytes_out += bytes_read_out;
+		printf("looping through\n");
+		if (total_bytes_out >= sizeof(output) - 1) {
+			fprintf(stderr, "Input array is full. Exiting.\n");
+			break;
+		}
+	}
+	printf("total_bytes_out: %d\n", total_bytes_out);
+
+
+	int bytes_sent_out = 0;
+	for (int i = 0; i < (total_bytes_out / 512 + 1); i++) {
+		unsigned char *send_info_out = (unsigned char *) malloc(512);
+		int bytes_to_send = 0;
+		for (int j = 0; j < 512; j++) {
+			if ((i * 512) + j >= total_bytes_out) break;
+			bytes_to_send++;
+			send_info_out[j] = output[(i * 512) + j];
+		}
+		bytes_sent_out += write(STDOUT_FILENO, send_info_out, bytes_to_send);
+		if (bytes_sent_out >= total_bytes_out) {
+			break;
+		}
+	}
+	printf("total_bytes_sent_out: %d\n", bytes_sent_out);
+	
 	if (rp == NULL) {   /* No address succeeded */
 		fprintf(stderr, "Could not connect\n");
 		exit(EXIT_FAILURE);
