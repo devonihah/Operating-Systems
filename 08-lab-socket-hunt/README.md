@@ -1030,7 +1030,7 @@ following distribution:
  - 5 points for compilation without warnings
  - 50 points for passing level 0
  - 15 points each for passing levels 1 through 3
- - For each level, 5 points for each seed:
+ - For each level, 3 points for each seed:
    - 7719
    - 33833
    - 20468

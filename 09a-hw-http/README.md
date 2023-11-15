@@ -74,8 +74,7 @@ local HTTP server.
     ```
 
  5. In the "HTTP Server" (lower) pane, use `cd` to navigate to the directory
-    associated with this assignment, i.e., the one containing the "www"
-    directory.
+    associated with this assignment.
 
  6. In the "HTTP Server" (lower) pane, run the following:
 
@@ -116,7 +115,7 @@ and "port" with the hostname and port on which you are running your server, and
 unique to the URL you are retrieving.  
 
 ```
-curl -s -v url > output_a.html 2>&1
+curl -s -v url > output_a.txt 2>&1
 ```
 
 The `-s` option tells `curl` to suppress the progress bar.  The `-v` tells
@@ -323,7 +322,7 @@ directory.
    be no null terminator.  Add a null byte at the end of the bytes read, so it
    can be used with string functions, such as `strlen()`.
 
- - Create the request body, so it contains the following contents:
+ - Create the response body, so it contains the following contents:
 
    ```
    Hello CS324
@@ -346,12 +345,15 @@ directory.
    should be a blank line; that is, this character sequence should follow the
    last header: `"\r\n\r\n"`.
 
- - Send the request body you created earlier.
+ - Send the response body you created earlier.
 
 Test your program by compiling it and placing the resulting binary in
-`www/cgi-bin`.  Then run `curl` against it using URL (e) above, substituting
-"myprog1" for "myprog".  Try a few different values for the query string and
-the request body.
+`www/cgi-bin`.  Then run the same `curl` command line that you used for URL
+(e) above, substituting "myprog1" for "myprog".  Try a few different values
+for the query string and the request body.  The response headers (beginning
+with the "Content-Type" header) and the response body returned for `myprog1`
+should match those for `myprog`, byte for byte, except that "Hello world" will
+be replaced with "Hello CS324" in the body.
 
 Note that using skills you learned in the
 [BYU bandit assignment](../02-hw-byu-bandit) you can also test your CGI program

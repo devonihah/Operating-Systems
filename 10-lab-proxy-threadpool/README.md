@@ -167,15 +167,17 @@ following simplified rules:
 
  - For the URL extracted from the HTTP request:
    - If there is a colon `:` in the URL _after_ the `://`, then:
-     - the digits immediately following the colon comprise the _port_;
+     - the digits immediately following the colon, up until the slash (`/`),
+       non-inclusive, comprise the _port_;
      - characters between the `://` and the colon (non-inclusive) comprise the
        _hostname_; and
-     - all characters after the port comprise the _path_.
+     - all characters after the port (including the first slash) comprise the
+       _path_.
    - Otherwise:
      - the _port_ is 80 (the default);
      - characters between the `://` and the next slash (`/`), non-inclusive,
        comprise the _hostname_; and
-     - all characters after the hostname (including the first slash), comprise
+     - all characters after the hostname (including the first slash) comprise
        the _path_.
 
        Note that the query string (the key-value pairs following `?`) can be
@@ -217,6 +219,11 @@ The `test_parser()` function was built for you to test the HTTP parsing code.
 It provides four scenarios: complete HTTP request with default port; complete
 HTTP request with explicit port and query string; complete request with dotless
 hostname, and incomplete HTTP request.
+
+Note that in addition to setting the various values extracted from the request,
+`test_parser()` expects `parse_request()` to return 1 if the request was
+complete and 0 otherwise.  You could get this result by having
+`parse_request()` call `complete_request_received()`.
 
 Compile your proxy code by running the following:
 
