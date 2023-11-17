@@ -1,0 +1,19 @@
+*   Trying 192.168.2.48:1024...
+* Connected to kasbah (192.168.2.48) port 1024 (#0)
+> GET /bar.txt HTTP/1.1
+> Host: kasbah:1024
+> User-Agent: curl/7.81.0
+> Accept: */*
+> 
+* Mark bundle as not supporting multiuse
+* HTTP 1.0, assume close after body
+< HTTP/1.0 200 OK
+< Server: SimpleHTTP/0.6 Python/3.10.12
+< Date: Wed, 15 Nov 2023 02:30:24 GMT
+< Content-type: text/plain
+< Content-Length: 6
+< Last-Modified: Sat, 28 Oct 2023 02:19:55 GMT
+< 
+{ [6 bytes data]
+* Closing connection 0
+hello

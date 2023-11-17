@@ -1,0 +1,23 @@
+*   Trying 192.168.2.48:1024...
+* Connected to kasbah (192.168.2.48) port 1024 (#0)
+> POST /cgi-bin/myprog1?univ=byu&class=CS324&msg=hello%3Dworld%21 HTTP/1.1
+> Host: kasbah:1024
+> User-Agent: curl/7.81.0
+> Accept: */*
+> Content-Length: 25
+> Content-Type: application/x-www-form-urlencoded
+> 
+} [25 bytes data]
+* Mark bundle as not supporting multiuse
+* HTTP 1.0, assume close after body
+< HTTP/1.0 200 Script output follows
+< Server: SimpleHTTP/0.6 Python/3.10.12
+< Date: Wed, 15 Nov 2023 04:08:45 GMT
+< Content-Type: text/plain
+< Content-Length: 108
+< 
+{ [108 bytes data]
+* Closing connection 0
+Hello CS324
+Query string: univ=byu&class=CS324&msg=hello%3Dworld%21
+Request body: username=user&password=pw
