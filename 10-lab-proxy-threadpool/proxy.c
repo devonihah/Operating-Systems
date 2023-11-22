@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <pthread.h>
 
 /* Recommended max object size */
 #define MAX_OBJECT_SIZE 102400
@@ -16,6 +17,7 @@ void test_parser();
 void print_bytes(unsigned char *, int);
 int open_sfd(int port, int optval);
 int open_server(const char * hostname, const char * port);
+void* handle_client_thread(void *arg);
 void handle_client(int client_socket);
 
 int main(int argc, char *argv[])
@@ -33,7 +35,11 @@ int main(int argc, char *argv[])
 		struct sockaddr_in in_addr;
 		socklen_t in_addr_len = sizeof(in_addr);
 		int client_socket = accept(sfd, (struct sockaddr*)&in_addr, &in_addr_len);
-	handle_client(client_socket);
+		pthread_t thread_id;
+		pthread_create(&thread_id, NULL, handle_client_thread, (void*)&client_socket);
+		handle_client(client_socket);
+	
+		pthread_detach(thread_id);
 	}
 	return 0;
 }
@@ -104,6 +110,16 @@ int open_server(const char * hostname, const char * port) {
 	return sockfd;
 }
 
+void* handle_client_thread(void *arg) {
+	int client_socket = *((int*)arg);
+	
+	pthread_detach(pthread_self());
+	handle_client(client_socket);
+
+	close(client_socket);
+
+	pthread_exit(NULL);
+}
 
 void handle_client(int client_socket) {
 	char buffer[4096]; // Adjust the buffer size as needed
@@ -119,8 +135,8 @@ void handle_client(int client_socket) {
 		if (strstr(buffer, "\r\n\r\n") != NULL || strstr(buffer, "\n\n") != NULL) {
 			break;
 		}
-		buffer[bytes_received] = '\0';
-		buffer[bytes_received] = '0';
+		//buffer[bytes_received] = '\0';
+		//buffer[bytes_received] = '0';
 	}
 	if (bytes_received == 0) { 
 		close(client_socket);
@@ -128,7 +144,7 @@ void handle_client(int client_socket) {
 	}
 	
 	buffer[bytes_received] = '\0';
-	//printf("%s\n", buffer);	
+	printf("buffer: %s\n", buffer);	
 	//print_bytes((unsigned char*)buffer, bytes_received);
 	
 	// Add a null-terminator to the HTTP request
@@ -142,24 +158,25 @@ void handle_client(int client_socket) {
 	char * headers = malloc(1024);
 	strncpy(headers, beginning, end - beginning);
 	headers[end - beginning] = '\0';
-	
+	printf("get all headers\n");
 	size_t total_length = snprintf(NULL, 0, "%s /%s HTTP/1.0\r\n%s\r\nConnection: close\r\nProxy_Connection: close\r\n\r\n", method, path, headers);
 	
 	char * combined_str = (char*)malloc(total_length);
 	snprintf(combined_str, total_length, "%s /%s HTTP/1.0\r\n%s\r\nConnection: close\r\nProxy-Connection: close\r\n\r\n", method, path, headers);
 	combined_str[total_length - 1] = '\n';
 	//print_bytes((unsigned char*)combined_str, total_length);
-	//printf("%s\n", combined_str);	
+	printf("combined string: %s\n", combined_str);	
 	
 	int server_socket = open_server(hostname, port);
 	send(server_socket, combined_str, total_length, 0);
 
-	char response_buffer[1024];
+	char response_buffer[MAX_OBJECT_SIZE];
 	int server_bytes_received = 0;
 	int new_server_bytes = 0;
 	
 	while((new_server_bytes = recv(server_socket, response_buffer + server_bytes_received, sizeof(response_buffer) - 1, 0)) > 0) {
 		//printf("bytes_received: %d\n", new_server_bytes);
+	
 		server_bytes_received += new_server_bytes;
 	}
 	response_buffer[server_bytes_received] = '\0';
