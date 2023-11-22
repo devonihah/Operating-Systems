@@ -5,11 +5,20 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 /* Recommended max object size */
 #define MAX_OBJECT_SIZE 102400
+#define MAX_BUFFER_SIZE 16
+#define NUM_THREADS 32
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:97.0) Gecko/20100101 Firefox/97.0";
+
+sem_t empty_slots, full_slots;
+pthread_mutex_t buffer_mutex;
+
+int buffer[MAX_BUFFER_SIZE];
+int in = 0, out = 0;
 
 int complete_request_received(char *);
 int parse_request(char *, char *, char *, char *, char *);
@@ -17,8 +26,38 @@ void test_parser();
 void print_bytes(unsigned char *, int);
 int open_sfd(int port, int optval);
 int open_server(const char * hostname, const char * port);
+void* consumer_thread(void *arg);
 void* handle_client_thread(void *arg);
 void handle_client(int client_socket);
+
+void enqueue(int client_socket) {
+	buffer[in] = client_socket;
+	in = (in + 1) % MAX_BUFFER_SIZE;
+}
+
+int dequeue() {
+	int client_socket = buffer[out];
+	out = (out + 1) % MAX_BUFFER_SIZE;
+	return client_socket;
+}
+
+void* consumer_thread(void *arg) {
+	while(1) {
+		sem_wait(&full_slots);
+		pthread_mutex_lock(&buffer_mutex);
+
+		int client_socket = dequeue();
+
+		pthread_mutex_unlock(&buffer_mutex);
+		sem_post(&empty_slots);
+
+		handle_client(client_socket);
+
+		close(client_socket);
+	}
+	pthread_exit(NULL);
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -29,18 +68,42 @@ int main(int argc, char *argv[])
 	int port = atoi(port_str);
 	
 	printf("%s\n", user_agent_hdr);
-	
+
+	sem_init(&empty_slots, 0, MAX_BUFFER_SIZE);
+	sem_init(&full_slots, 0, 0);
+	pthread_mutex_init(&buffer_mutex, NULL);
+
+	pthread_t consumer_threads[NUM_THREADS];
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		pthread_create(&consumer_threads[i], NULL, consumer_thread, NULL);
+	}
+
 	int sfd = open_sfd(port, 1);
+
 	while(1) {
 		struct sockaddr_in in_addr;
 		socklen_t in_addr_len = sizeof(in_addr);
 		int client_socket = accept(sfd, (struct sockaddr*)&in_addr, &in_addr_len);
-		pthread_t thread_id;
-		pthread_create(&thread_id, NULL, handle_client_thread, (void*)&client_socket);
-		handle_client(client_socket);
+		
+		sem_wait(&empty_slots);
+		pthread_mutex_lock(&buffer_mutex);
+
+		enqueue(client_socket);
+
+		pthread_mutex_unlock(&buffer_mutex);
+		sem_post(&full_slots);
+
+		//pthread_t thread_id;
+		//pthread_create(&thread_id, NULL, handle_client_thread, (void*)&client_socket);
+		//handle_client(client_socket);
 	
-		pthread_detach(thread_id);
+		//pthread_detach(thread_id);
 	}
+
+	sem_destroy(&empty_slots);
+	sem_destroy(&full_slots);
+	pthread_mutex_destroy(&buffer_mutex);
+
 	return 0;
 }
 
@@ -109,6 +172,7 @@ int open_server(const char * hostname, const char * port) {
 	freeaddrinfo(res);
 	return sockfd;
 }
+
 
 void* handle_client_thread(void *arg) {
 	int client_socket = *((int*)arg);
