@@ -122,7 +122,10 @@ int main(int argc, char *argv[]) {
 		/* addrlen needs to be initialized before the call to
 		 * recvfrom().  See the man page for recvfrom(). */
 		addr_len = sizeof(struct sockaddr_storage);
+
+		printf("before accept()\n"); fflush(stdout);
 		int connfd = accept(sfd, remote_addr, &addr_len);
+		printf("after accept()\n"); fflush(stdout);
 
 		if (addr_fam == AF_INET) {
 			remote_addr_in = *(struct sockaddr_in *)remote_addr;
