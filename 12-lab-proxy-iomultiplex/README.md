@@ -1,9 +1,9 @@
 # HTTP Proxy Lab - I/O Multiplexing
 
 The purpose of this assignment is to help you become more familiar with the
-concepts associated with client and server sockets that are non-blocking, as
+concepts associated with client and server sockets that are nonblocking, as
 part of the I/O multiplexing concurrency paradigm.  You will learn these
-concepts by building a working HTTP proxy server that uses epoll.
+concepts by building a working HTTP proxy that uses epoll.
 
 
 # Maintain Your Repository
@@ -20,24 +20,26 @@ concepts by building a working HTTP proxy server that uses epoll.
 
 # Table of Contents
 
-
  - [Overview](#overview)
  - [Preparation](#preparation)
    - [Reading](#reading)
  - [Instructions](#instructions)
    - [Part 1 - HTTP Request Parsing](#part-1---http-request-parsing)
-   - [Part 2 - I/O Multiplexing HTTP Proxy](#part-2---io-multiplexing-http-proxy)
+     - [Checkpoint 1](#checkpoint-1)
+   - [Part 2 - Client Request Data and Client Request States](#part-2---client-request-data-and-client-request-states)
+   - [Part 3 - I/O Multiplexing HTTP Proxy](#part-3---io-multiplexing-http-proxy)
      - [Handling a New HTTP Client](#handling-a-new-http-client)
+     - [Checkpoint 2](#checkpoint-2)
      - [Receiving the HTTP Request](#receiving-the-http-request)
-     - [Creating an HTTP Request](#creating-an-http-request)
-     - [Communicating with the HTTP Server](#communicating-with-the-http-server)
+     - [Checkpoint 3](#checkpoint-3)
+     - [Sending the HTTP Request](#sending-the-http-request)
+     - [Checkpoint 4](#checkpoint-4)
+     - [Receiving the HTTP Response](#receiving-the-http-response)
+     - [Checkpoint 5](#checkpoint-5)
      - [Returning the HTTP Response](#returning-the-http-response)
      - [Testing](#testing)
  - [Additional Resources](#additional-resources)
-   - [Non-Blocking I/O](#non-blocking-io)
-   - [Client Request States](#client-request-states)
-   - [Client Request Data](#client-request-data)
-   - [epoll Echo Server Example](#epoll-echo-server-example)
+   - [Non-Blocking I/O](#nonblocking-io)
  - [Testing](#testing-1)
    - [Manual Testing - Non-Local Server](#manual-testing---non-local-server)
    - [Manual Testing - Local Server](#manual-testing---local-server)
@@ -48,12 +50,12 @@ concepts by building a working HTTP proxy server that uses epoll.
 
 # Overview
 
-In this lab, you will be implementing an HTTP proxy server that handles
-concurrent requests.  However, unlike the proxy server implemented in the
+In this lab, you will be implementing an HTTP proxy that handles
+concurrent requests.  However, unlike the HTTP proxy implemented in the
 [HTTP Proxy with Threadpool Lab](../10-lab-proxy-threadpool),
-the proxy server you produce will achieve concurrency using I/O multiplexing.
+the HTTP proxy you produce will achieve concurrency using I/O multiplexing.
 Your server will not spawn any additional threads or processes (i.e., it will
-be single-threaded), and all sockets will be set to non-blocking.  While your
+be single-threaded), and all sockets will be set to nonblocking.  While your
 server will not take advantage of multiprocessing, it will be more efficient by
 holding the processor longer because it is not blocking (and thus sleeping) on
 I/O.  This model is also referred to as an example of *event-based* programming,
@@ -81,9 +83,9 @@ assignment:
    registered to an epoll instance, e.g., for reading or writing, and which
    type of triggering is used (for this lab you will use edge-triggered
    monitoring).
- - `epoll_wait2)` - shows the usage of the simple `epoll_wait()` function,
+ - `epoll_wait()` - shows the usage of the simple `epoll_wait()` function,
    including how events are returned and how errors are indicated,
- - `fcntl(2)`
+ - `fcntl(2)` - used to make sockets nonblocking
  - `socket(2)`, `socket(7)`
  - `send(2)`
  - `recv(2)`
@@ -100,14 +102,100 @@ Follow the instructions for implementing HTTP request parsing from
 [HTTP Proxy Lab - Threadpool Lab](../10-lab-proxy-threadpool#part-1---http-request-parsing),
 if you haven't already.
 
+### Checkpoint 1
 
-## Part 2 - I/O Multiplexing HTTP Proxy
+Refer to [Checkpoint 1](../10-lab-proxy-threadpool#checkpoint-1) in the
+threadpool lab.
+
+
+## Part 2 - Client Request Data and Client Request States
+
+### Client Request Data
+
+Define a `struct request_info` to keep track of data associated with handling
+each request.  The following paragraphs explain why this is necessary and
+provide a sample list of data members that you might include in such a request.
+
+The reason for defining a single structure for keeping track of data associated
+with a given request is that, just like when using blocking sockets, you won't
+always be able to receive or send all your data with a single call to `read()`
+or `write()`.  With blocking sockets in a multi-threaded server, the solution
+was to use a loop that received or sent until you had everything, before you
+moved on to anything else.  Because the sockets were configured as blocking,
+the kernel would context switch out the thread and put it into a sleep state
+until there was I/O.
+
+However, with I/O multiplexing, you can't simply call `read()` repeatedly or it
+would block the entire single-threaded process. Instead, you must stop when
+there is no more data to read and move on to handling the other ready events.
+Because you are handling all HTTP requests with a single thread, you don't have
+the ease of declaring variables associated with handling a given HTTP request
+on that thread's stack.  Sharing those variables across multiple concurrent
+client requests would really mess things up!
+
+You can avoid this by defining a struct to keep track of all the state
+associated with handling a given HTTP request.  When a new client connection is
+accepted, then a new instance of this struct is allocated and initialized for
+the new HTTP request.  This instance is registered with the file descriptor
+associated with the new client connection using `epoll_ctl()`.  The `data.ptr`
+member of the `struct epoll_event` used with `epoll_ctl()` points to the newly
+allocated and initialized allocated struct.  Now when there is an event, your
+code uses the `data.ptr` member of the event returned to retrieve that
+instance.  This is how the code knows where it left off and thus where to pick
+up this time.  Here is a list of members that that structure might contain.
+Note that these should loosely correspond to local variables used in the
+[thread- or threadpool-based version of the proxy](../10-lab-proxy-threadpool).
+
+ - the client-to-proxy socket, i.e., the one corresponding to the requesting
+   client
+ - the proxy-to-server socket, i.e., the one corresponding to the connection
+   to the HTTP server
+ - the current state of the request (see note below).
+ - the buffer(s) to read into and write from
+ - the total number of bytes read from the client
+ - the total number of bytes to write to the server
+ - the total number of bytes written to the server
+ - the total number of bytes read from the server
+ - the total number of bytes written to the client
+
+
+### Client Request States
+
+A note about the "current state" member above.  Because handling an HTTP
+request involves various tasks (e.g., receive request from client, send request
+to server, etc.), it is helpful to think about the problem in terms of "states"
+with events that trigger transitions between these states.  It is recommended
+that you use the following set of request states, each associated with
+different I/O operations related to HTTP proxy operation:
+
+ - `READ_REQUEST`
+ - `SEND_REQUEST`
+ - `READ_RESPONSE`
+ - `SEND_RESPONSE`
+
+These could be defined in one of several ways.  One way is to use:
+
+```c
+#define READ_REQUEST 1
+#define SEND_REQUEST 2
+#define READ_RESPONSE 3
+#define SEND_RESPONSE 4
+```
+
+There is not an easy way to test this until the next part, when you populate
+your `struct request_info` with actual information associated with an incoming
+HTTP request.
+
+
+## Part 3 - I/O Multiplexing HTTP Proxy
 
 As you implement this section, you might find it helpful to refer to the TCP
 code from the
 [sockets homework assignment](../07-hw-sockets)
+the
+[I/O multiplexing homework assignment](../11b-hw-iomultiplex),
 and the
-[epoll Echo Server Example](#epoll-echo-server-example).
+[HTTP proxy with threadpool lab](../10-lab-proxy-threadpool).
 
 
 ### Handling a New HTTP Client
@@ -127,10 +215,10 @@ Write functions for each of the following:
      ```
 
      While this might seem like a bad idea, during development of your proxy
-     server, it will allow you to immediately restart your proxy server after
+     server, it will allow you to immediately restart your HTTP proxy after
      failure, rather than having to wait for it to time out.
-   - Configure the socket to use *non-blocking I/O* (see the
-     [epoll Echo Server](echoserver-epoll/echoservere.c)) for an example.
+   - Configure the socket to use *nonblocking I/O* (see the
+     [I/O Multiplexing assignment](../11b-hw-iomultiplex/)) for an example.
    - `bind()` it to a port passed as the first argument from the
      command line, and configure it for accepting new clients with `listen()`.
    - Return the file descriptor associated with the listening socket.
@@ -138,18 +226,26 @@ Write functions for each of the following:
  - `handle_new_clients()` - Accept and prepare for communication with incoming
    clients.
    - Loop to `accept()` any and all client connections.  For each new file
-     descriptor (i.e., corresponding to a new client) returned, configure it to
-     use non-blocking I/O (see the man page for `fcntl(2)` for how to do this),
-     and register each returned client-to-proxy socket with the epoll instance
-     that you created for reading, using edge-triggered monitoring (i.e.,
-     `EPOLLIN | EPOLLET`).  You should only break out of your loop and stop
-     calling `accept()` when it returns a value less than 0, in which case:
+     descriptor (i.e., corresponding to a new client) returned:
+     - Configure it to use nonblocking I/O.  See the
+       [I/O Multiplexing assignment](../11b-hw-iomultiplex/) for a full,
+       working example.
+     - Allocate memory for a new `struct request_info` and initialize the
+       values in that `struct request_info`.  The initial state should be
+       `READ_REQUEST`.
+     - Register each returned client-to-proxy socket with the epoll instance
+       that you created, for reading, using edge-triggered monitoring
+       (i.e., `EPOLLIN | EPOLLET`).  Associate the newly-allocated `struct
+       request_info` with the event by assigning the `data.ptr` member to it.
+
+     You should only break out of your loop and stop calling `accept()` when it
+     returns a value less than 0, in which case:
      - If `errno` is set to `EAGAIN` or `EWOULDBLOCK`, then that is an
        indicator that there are no more clients currently pending;
-     - If `errno` is anything else, this is an error.  It actually be best to
-       have your proxy exit at this point.
+     - If `errno` is anything else, this is an error.  Use `perror()` to print
+       out the error description.
 
-     Have your proxy print the newly created file descriptor associated with
+     Have your HTTP proxy print the newly created file descriptor associated with
      any new clients.  You can remove this later, but it will be good for you
      to see now that they are being created.
 
@@ -175,7 +271,6 @@ Now add the following to `main()`:
  - After the `epoll_wait()` `while(1)` loop, you should clean up any resources
    (e.g., freeing `malloc()`'d memory), and exit.
 
-
 At this point, your server is merely set up to listen for incoming client
 connections and `accept()` them.  It is not yet doing anything else useful, but
 you should be able to test your work so far!
@@ -193,58 +288,115 @@ that of another user:
 ./port-for-user.pl
 ```
 
-Then run the following to start your proxy server:
+Then run the following to start your HTTP proxy:
+
+(Replace "port" with the port returned by `./port-for-user.pl`.)
 
 ```bash
 ./proxy port
 ```
 
-Replace `port` with the port returned by `./port-for-user.pl`.
+Next you will use the `curl` command-line HTTP client to test your code.
+`curl` is described more in the [HTTP homework assignment](../09a-hw-http).
+For the purposes of this section, `curl` creates and sends an HTTP request to
+your HTTP proxy, which is designated with `-x`.
 
-Now, from another terminal on the same machine, run the following:
+The `./slow-client.py` script  acts like `curl`, but it spreads its HTTP
+request over several calls to `send()` to test the robustness of your proxy
+server in reading from a byte stream.  The `-b` option designates the amount of
+time (in seconds) that it will sleep in between lines that it sends.
+
+From another terminal on the same machine, run the following:
 
 (NOTE: the commands below are expected to _fail_ at this point, in part because
-your proxy server implementation is incomplete.  The commands are merely a way
-to see how your proxy server behaves with its current, incomplete
-functionality.)
+your HTTP proxy implementation is incomplete.  The commands are merely a way
+to see how your HTTP proxy behaves with its current, incomplete
+functionality.  What is important is the proxy output, showing that you have
+parsed things correctly.)
 
-(Replace `port` with the port on which your proxy server is listening.)
+(Replace "port" with the port on which your HTTP proxy is listening.)
 
 ```bash
 curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
 
-`curl` is a command-line HTTP client, described more in
-[the section on manual testing](#manual-testing---non-local-server).
-For the purposes of this section, `curl` creates and sends an HTTP request to
-your proxy server, which is designated with `-x`.
 
-Your proxy server should be printing the file descriptors associated with each
-of the two connections at this point.  However, you shouldn't expect it to be
+### Checkpoint 2
+
+Your HTTP proxy should be printing the file descriptors associated with each
+new client connection at this point.  However, you shouldn't expect it to be
 doing much else--not just yet anyway.
 
 
 ### Receiving the HTTP Request
 
 Write a function, `handle_client()`, that takes a pointer to a
-[client request](#client-request-data), determines what state it is in, and
-performs the actions associated with that state (i.e., picks up where it left
-off.  See [Client Request States](#client-request-states) for more information.
-For now, just implement the `READ_REQUEST` state.
+[struct client request](#part-2---client-request-data-and-client-request-states).
+The function should use the `struct client request` pointer passed in to
+determine what state the request is currently in.
 
-At this point, it might be good to add a debug print statement to show when
-your client enters `handle_client()`, as well as the file descriptor associated
-with the client and the current state of the client.
+Then do the following:
 
-Now add some code to your `epoll_wait()` loop that calls `handle_client()` when
-an event corresponds to an existing client.
+ - When your client enters `handle_client()`, print out both the file
+   descriptor associated with the client-to-proxy socket and the current state.
+   This way you always know something about the request for which an event was
+   recently triggered.
+
+ - If in the `READ_REQUEST` state (other states will be addressed later), read
+   from the client-to-proxy socket in a loop until one of the following
+   happens:
+
+   - the entire HTTP request has been read--that is, the request contains
+     `\r\n\r\n`.  If this is the case:
+
+     - Print out the HTTP request using `print_bytes()`.  This will allow you
+       to see exactly what bytes were received.
+     - Add a null-terminator to the HTTP request, and pass it to the
+       `parse_request()` function, allowing it to extract the individual values
+       associated with the request.
+     - Print out the components of the HTTP request, once you have received it
+       in its entirety (e.g., like `test_parser()` does).  This includes the
+       method, hostname, port, and path.  Because these should all be
+       null-terminated strings of type `char []`, you can use `printf()`.
+     - Create the request that you will send to the server using the
+       [instructions from the threadpool proxy lab](../10-lab-proxy-threadpool#creating-an-http-request).
+     - Use `print_bytes()` to print out the HTTP request you created.
+     - Create a new socket and call `connect()` to the HTTP server.
+     - Configure the new socket as nonblocking. (Do this only _after_ calling
+       `connect()`!)
+     - Unregister the client-to-proxy socket with the epoll instance that you
+       created.
+     - Register the proxy-to-server socket with the epoll instance that you
+       created, for _writing_ (i.e., `EPOLLOUT`).
+     - Change the state of the request to `SEND_REQUEST`.
+
+   - `read()` (or `recv()`) returns a value less than 0.
+     - If `errno` is `EAGAIN` or `EWOULDBLOCK`, it just means that there is no
+       more data ready to be read; you will continue reading from the socket
+       when you are notified by epoll that there is more data to be read.
+     - If `errno` is anything else, this is an error.  Print out the error with
+       `perror()`, free the memory associated with the current
+       `struct request_info *`, and close the client-to-proxy socket.  Closing
+       the socket automatically unregisters it from any associations with the
+       epoll instance.
+
+   - At this point, you can return from the function.  There is no more that
+     can be done with the current HTTP request at this time.  `epoll_wait()`
+     will notify you when more can be done.
+
+Now add some code to your `epoll_wait()` loop.  Cast the `data.ptr` member of the
+`struct epoll_event` that represents the current event to a
+`struct request_info *`.  Determine whether the `struct request_info` instance
+referred to is the listening socket or corresponds to an existing client.  If
+the listening socket, then call `handle_new_clients()`; otherwise, call
+`handle_client()`.
 
 Re-build and re-start your proxy, and make sure it works properly when you run
 the following:
 
 (NOTE: the commands below are still expected to fail.)
 
-(Replace `port` with the port on which your proxy server is listening.)
+(Replace "port" with the port on which your HTTP proxy is listening.)
 
 ```bash
 curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
@@ -253,45 +405,57 @@ curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.
 ./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
 
-The `./slow-client.py` script is also described more in
-[the section on manual testing](#manual-testing---non-local-server).
-For the purposes of this section, it acts like `curl`, but it spreads its HTTP
-request over several calls to `send()`.
+### Checkpoint 3
 
-In both cases, your proxy server (i.e., in `handle_client()`) should indicate
-that it has received the client request by making its way through the
-`READ_REQUEST` state to the `SEND_REQUEST`  state.  Note that the `curl`
-command will likely result in a client request being in the `READ_REQUEST`
-state only once in the `handle_request()` function, but the `slow-client.py`
-command should require at least two times through `READ_REQUEST` in the
-`handle_request()` function.
+Use output from your print statements to verify that 1) your HTTP proxy has
+received the entire HTTP request, 2) your HTTP proxy has properly extracted the
+components of the HTTP request, and 3) the proxy-to-server HTTP request has been
+appropriately created.  
 
-At this point, you might also want to print out the HTTP request you have
-received, potentially over multiple calls to `handle_client()`, to see that it
-was what you expected.
+Note that the `curl` command should result in a client request entering the
+`handle_client()` function in the `READ_REQUEST` state only once, but the
+`slow-client.py` command should require at least two times through the
+`handle_client()` function in the `READ_REQUEST` state.  In both cases, your
+HTTP proxy should eventually enter `handle_client()` in the `SEND_REQUEST`
+because it has finished receiving and parsing the request.
 
-
-### Creating an HTTP Request
-
-Follow the instructions for creating an HTTP request from
-[HTTP Proxy Lab - Threadpool Lab](../10-lab-proxy-threadpool#creating-an-http-request),
-if you haven't already.  Your proxy should create this request *after* it has
-received the entire HTTP request.
+Now would be a good time to save your work, if you haven't already.
 
 
-### Communicating with the HTTP Server
+### Sending the HTTP Request
 
 Now that your proxy can read an HTTP request from a client and create an HTTP
 request to be sent to the server, it is time to send the request, i.e., the
-`SEND_REQUEST` state.  In the `handle_client()` function, add the functionality
-for the `SEND_REQUEST` and `READ_RESPONSE` states, as specified in the
-[Client Request States](#client-request-states).
+`SEND_REQUEST` state.  In the `handle_client()` function, add the following
+functionality.
+
+If in the `SEND_REQUEST` state, loop to write the request to the server
+using the proxy-to-server socket until one of the following happens:
+
+ - you have sent the entire HTTP request to the server.  If this is the case:
+   - Unregister the proxy-to-server socket with the epoll instance for writing.
+   - Register the proxy-to-server socket with the epoll instance for reading.
+   - Change state to `READ_RESPONSE`.
+ - `write()` (or `send()`) returns a value less than 0.
+   - If `errno` is `EAGAIN` or `EWOULDBLOCK`, it just means that there is no
+     buffer space available for writing to the socket; you will continue
+     writing to the socket when you are notified by epoll that there is more
+     buffer space available for writing.
+   - If `errno` is anything else, this is an error.  Print out the error with
+     `perror()`, free the memory associated with the current
+     `struct request_info *`, and close both client-to-proxy and
+     proxy-to-server sockets.  Closing the sockets automatically unregisters
+     your sockets from any associations with the epoll instance.
+
+At this point, you can return from the function.  There is no more that can be
+done with the current HTTP request at this time.  `epoll_wait()` will notify
+you when more can be done.
 
 Now would be a good time to test with the following commands:
 
 (NOTE: the commands below are still expected to fail.)
 
-(Replace `port` with the port on which your proxy server is listening.)
+(Replace "port" with the port on which your HTTP proxy is listening.)
 
 ```bash
 curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
@@ -300,27 +464,121 @@ curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.
 ./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
 ```
 
-Just as before, you should not only observe that the proxy server successfully
-issues the request and receives the response from the HTTP server, but also
-that it took several calls to `handle_client()` to receive the entire response.
+### Checkpoint 4
+
+In addition to what you were observing before, you should now observe your HTTP
+proxy eventually entering `handle_client()` in the `READ_RESPONSE` state because
+it has finished sending the request.
+
+Now would be a good time to save your work, if you haven't already.
+
+
+### Receiving the HTTP Response
+
+Once your proxy has sent the HTTP request to the HTTP server, it is time to
+read the response, i.e., the `READ_RESPONSE` state.  In the `handle_client()`
+function, add the following functionality.
+
+If in the `READ_RESPONSE` state, loop to read from the proxy-to-server socket
+until one of the following happens:
+
+ - you have read the entire HTTP response from the server.  Since this is
+   HTTP/1.0, this is when the call to `read()` (or `recv()`) returns 0,
+   indicating that the server has closed the connection.  If this is the case:
+   - Close the proxy-to-server socket.
+   - Use `print_bytes()` to print out the HTTP response you received.
+   - Register the client-to-proxy socket with the epoll instance for writing.
+   - Change state to `SEND_RESPONSE`.
+ - `read()` (or `recv()`) returns a value less than 0.
+   - If `errno` is `EAGAIN` or `EWOULDBLOCK`, it just means that there is no
+     more data ready to be read; you will continue reading from the socket when
+     you are notified by epoll that there is more data to be read.
+   - If `errno` is anything else, this is an error.  Print out the error with
+     `perror()`, free the memory associated with the current
+     `struct request_info *`, and close both client-to-proxy and
+     proxy-to-server sockets.  Closing the sockets automatically unregisters
+     your sockets from any associations with the epoll instance.
+
+At this point, you can return from the function.  There is no more that can be
+done with the current HTTP request at this time.  `epoll_wait()` will notify
+you when more can be done.
+
+Now would be a good time to test with the following commands:
+
+(NOTE: the commands below are still expected to fail.)
+
+(Replace "port" with the port on which your HTTP proxy is listening.)
+
+```bash
+curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
+```
+```bash
+./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
+```
+
+
+### Checkpoint 5
+
+Use output from your print statements to verify that your HTTP proxy has
+received the entire HTTP response.  Note that the requests for
+`/cgi-bin/slowsend.cgi`  command should result in a client request entering the
+`handle_client()` function in the `READ_RESPONSE` state at least two times.
+Also, your HTTP proxy should eventually enter `handle_client()` in the
+`SEND_RESPONSE` state because it has finished receiving the response.
+
+Now would be a good time to save your work, if you haven't already.
 
 
 ### Returning the HTTP Response
 
-With the response from the server, all that is left is for your proxy to send
-it back to the client.  In the `handle_client()` function, add the
-functionality for the `SEND_RESPONSE` state, as specified in the
-[Client Request States](#client-request-states).
+Once your proxy has received the HTTP response from the HTTP server, it is time
+to send it back to the client, i.e., the `SEND_RESPONSE` state.  In the
+`handle_client()` function, add the following functionality.
+
+If in the `SEND_RESPONSE` state, loop to write the response to the server
+using the client-to-proxy socket until one of the following happens:
+
+ - you have written the entire HTTP response to the client socket.  If this is
+   the case:
+   - Free the memory associated with the current `struct request_info *`.
+   - Close your client-to-proxy socket.
+   - You are done!
+ - `write()` (or `send()`) returns a value less than 0.
+   - If `errno` is `EAGAIN` or `EWOULDBLOCK`, it just means that there is
+     no buffer space available for writing to the socket; you will continue
+     writing to the socket when you are notified by epoll that there is more
+     buffer space available for writing.
+   - If `errno` is anything else, this is an error.  Print out the error with
+     `perror()`, free the memory associated with the current
+     `struct request_info *`, and close the client-to-proxy socket.  Closing
+     the socket automatically unregisters it from any associations with the
+     epoll instance.
+
+At this point, you can return from the function.  The HTTP request has been
+successfully handled!
+
+Now would be a good time to test with the following commands:
+
+(NOTE: the commands below are still expected to fail.)
+
+(Replace "port" with the port on which your HTTP proxy is listening.)
+
+```bash
+curl -x http://localhost:port/ "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
+```
+```bash
+./slow-client.py -x http://localhost:port/ -b 1 "http://www-notls.imaal.byu.edu/cgi-bin/slowsend.cgi?obj=lyrics"
+```
 
 
 ### Testing
 
 At this point you should be able to pass:
- - [Tests performed against a non-local Web server](#manual-testing---non-local-server).
- - [Tests performed against a local Web server](#manual-testing---local-server).
+ - [Tests performed against a non-local HTTP server](#manual-testing---non-local-server).
+ - [Tests performed against a local HTTP server](#manual-testing---local-server).
  - [Automated tests](#automated-testing) with the following command:
    ```bash
-   ./driver.py -b 20 -c 75 epoll
+   ./driver.py -b 60 -c 35 epoll
    ```
 
 
@@ -328,7 +586,7 @@ At this point you should be able to pass:
 
 ## Non-Blocking I/O
 
-All sockets that your proxy will use should be set up for non-blocking I/O.
+All sockets that your proxy will use should be set up for nonblocking I/O.
 This includes the listen socket, the sockets associated with communications
 between client and proxy, and the sockets associated with communications
 between proxy and server.
@@ -337,182 +595,27 @@ Additionally, all sockets must be registered with the epoll instance--for
 reading or writing--using edge-triggered monitoring.
 
 That being said, for simplicity, you _should_ wait to set the proxy-to-server
-socket as non-blocking _after_ you call `connect()`, rather than before.  While
-that will mean that your server not fully non-blocking, it will allow you to
+socket as nonblocking _after_ you call `connect()`, rather than before.  While
+that will mean that your server not fully nonblocking, it will allow you to
 focus on the more important parts of I/O multiplexing.  This is permissible.
 
 If you choose to ignore the previous paragraph and set the proxy-to-server
-socket as non-blocking before calling `connect()`, you can execute `connect()`
+socket as nonblocking before calling `connect()`, you can execute `connect()`
 immediately, but you cannot initiate the `write()` call until `epoll_wait()`
 indicates that this socket is ready for writing. Because the socket is
-non-blocking, `connect()` will return before the connection is actually
+nonblocking, `connect()` will return before the connection is actually
 established.  In this case, the return value is -1 and `errno` is set to
 `EINPROGRESS` (see the `connect(2)` man page).  This also means that when
-iterating through the results of `getaddrinfo()` when a socket is non-blocking,
+iterating through the results of `getaddrinfo()` when a socket is nonblocking,
 the return value of `connect()` is not a useful check for determining whether a
-given address is reachable.  This works
-
-
-## Client Request States
-
-A server that uses I/O multiplexing will handle multiple clients concurrently
-using only a single thread.  That means that it only acts on a given client
-when there is I/O associated with that client.  But because handling a proxy
-client involves various tasks (e.g., receive request from client, send request
-to server, etc.), it is helpful to think about the problem in terms of
-"states" and events that trigger transitions between these states.  The
-following is an example of a set of client request states, each associated with
-different I/O operations related to proxy server operation:
-
-
-### `READ_REQUEST`
-
-This is the start state for every new client request.  You should initialize
-every new client request to be in this state.
-
-In this state, read from the client-to-proxy socket in a loop until one of the
-following happens:
-
- - you have read the entire HTTP request from the client.  If this is the case:
-   - parse the client request and create the request that you will send to the
-     server.
-   - create a new socket and connect to the HTTP server.
-   - configure the new socket as non-blocking.
-   - register the socket with the epoll instance for writing.
-   - change state to `SEND_REQUEST`.
- - `read()` (or `recv()`) returns a value less than 0.
-   - If `errno` is `EAGAIN` or `EWOULDBLOCK`, it just means that there is no
-     more data ready to be read; you will continue reading from the socket when
-     you are notified by epoll that there is more data to be read.
-   - If `errno` is anything else, this is an error.  You can print out the
-     error, cancel your client request, and deregister your socket at this
-     point.
-
-
-### `SEND_REQUEST`
-
-You reach this state only after the entire request has been received from the
-client and the connection to the server has been initiated (i.e., in the
-`READ_REQUEST` state).
-
-In this state, loop to write the request to to the server using the
-proxy-to-server socket until one of the following happens:
-
- - you have sent the entire HTTP request to the server.  If this is the case:
-   - register the proxy-to-server socket with the epoll instance for reading.
-   - change state to `READ_RESPONSE`.
- - `write()` (or `send()`) returns a value less than 0.
-   - If and `errno` is `EAGAIN` or `EWOULDBLOCK`, it just means that there is
-     no buffer space available for writing to the socket; you will continue
-     writing to the socket when you are notified by epoll that there is more
-     buffer space available for writing.
-   - If `errno` is anything else, this is an error.  You can print out the
-     error, cancel your client request, and deregister your socket at this
-     point.
-
-
-### `READ_RESPONSE`
-
-You reach this state only after you have sent the entire HTTP request (i.e., in
-the `SEND_REQUEST` state) to the Web server.
-
-In this state, loop to read from the proxy-to-server socket until one of the
-following happens:
-
- - you have read the entire HTTP response from the server.  Since this is
-   HTTP/1.0, this is when the call to `read()` (or `recv()`) returns 0,
-   indicating that the server has closed the connection.  If this is the case:
-   - close the proxy-to-server socket.
-   - register the client-to-proxy socket with the epoll instance for writing.
-   - change state to `SEND_RESPONSE`.
- - `read()` (or `recv()`) returns a value less than 0.
-   - If `errno` is `EAGAIN` or `EWOULDBLOCK`, it just means that there is no
-     more data ready to be read; you will continue reading from the socket when
-     you are notified by epoll that there is more data to be read.
-   - If `errno` is anything else, this is an error.  You can print out the
-     error, cancel your client request, and deregister your socket at this
-     point.
-
-
-### `SEND_RESPONSE`
-
-You reach this state only after you have received the entire response from the
-Web server (i.e., in the `READ_RESPONSE` state).
-
-In this state, loop to write the response to the client using the
-client-to-proxy socket until one of the following happens:
-
- - you have written the entire HTTP response to the client socket.  If this is
-   the case:
-   - close your client-to-proxy socket.  You are done!
- - `write()` (or `send()`) returns a value less than 0.
-   - If `errno` is `EAGAIN` or `EWOULDBLOCK`, it just means that there is
-     no buffer space available for writing to the socket; you will continue
-     writing to the socket when you are notified by epoll that there is more
-     buffer space available for writing.
-   - If `errno` is anything else, this is an error.  You can print out the
-     error, cancel your client request, and deregister your socket at this
-     point.
-
-
-## Client Request Data
-
-You will need to keep track of the data associated with each request.  The
-reason is that, just like when using blocking sockets, you won't always be able
-to receive or send all your data with a single call to `read()` or `write()`.
-With blocking sockets in a multi-threaded server, the solution was to use a
-loop that received or sent until you had everything, before you moved on to
-anything else.  Because the sockets were configured as blocking, the kernel
-would context switch out the thread and put it into a sleep state until there
-was I/O.
-
-However, with I/O multiplexing and non-blocking I/O, you can't loop until you
-receive (or send) everything; you have to stop when you get an value less than
-0 and move on to handling the other ready events, after which you will return
-to the `epoll_wait()` loop to see if it is ready for more I/O.  When a return
-value to `read()` or `write()` is less than 0 and `errno` is `EAGAIN` or
-`EWOULDBLOCK`, it is a an indicator that you are done for the moment--but you
-need to know where you should start next time it's your turn (see man pages for
-`accept(2)` and `read(2)`, and search for "blocking").  For example, you should
-associate the following with each client request.
-
- - the client-to-proxy socket, i.e., the one corresponding to the requesting
-   client
- - the proxy-to-server socket, i.e., the one corresponding to the connection
-   to the Web server
- - the current state of the request
-   (see [Client Request States](#client-request-states)).
- - the buffer(s) to read into and write from
- - the total number of bytes read from the client
- - the total number of bytes to write to the server
- - the total number of bytes written to the server
- - the total number of bytes read from the server
- - the total number of bytes written to the client
-
-You might like to define a `struct request_info` (for example) that contains
-each of these members.
-
-
-## epoll Echo Server Example
-
-The `echoserver-epoll` directory contains a working version of a echo server
-using epoll, complete with non-blocking sockets and edge-triggered monitoring.
-To compile it, run the following from the `echoserver-epoll` directory:
-
-```bash
-gcc -o echoservere echoservere.c
-```
-
-You can use the code as a guide for building your HTTP proxy server with epoll.
-It runs the same way as the echo server implementations from the
-[concurrency homework assignment](../09a-hw-concurrency).
+given address is reachable.
 
 
 # Testing
 
 Some tools are provided for testing--both manual and automated:
 
- - The code for the `tiny` Web server
+ - A python-based HTTP server
  - A driver for automated testing
 
 
@@ -540,15 +643,14 @@ but use "epoll" in place of "threadpool" whenever the driver is used.
 Your score will be computed out of a maximum of 100 points based on the
 following distribution:
 
- - 20 for basic HTTP proxy functionality with epoll
- - 75 for handling concurrent HTTP proxy requests using epoll
- - 5 - compiles without any warnings (this applies to your proxy code, not
-   `tiny` and friends).
+ - 60 for basic HTTP proxy functionality with epoll
+ - 35 for handling concurrent HTTP proxy requests using epoll
+ - 5 - compiles without any warnings
 
 Run the following to check your implementation:
 
 ```b
-./driver.py -b 20 -c 75 epoll
+./driver.py -b 60 -c 35 epoll
 ```
 
 

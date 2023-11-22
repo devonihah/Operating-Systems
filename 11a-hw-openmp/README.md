@@ -220,14 +220,6 @@ For each run, record both:
      For the purposes of this problem, assume that the non-parallel region does
      not vary with `α`.
 
-
-# Evaluation
-
- - 5 points for correct program output (i.e., `pic.ppm` matches)
- - 5 points for correct run times
- - 10 points for correct answers to questions in Part 4 (1 point per question)
-
-
 # Cleanup
 
 Remove `pic.ppm` and `pic.png` from your filesystem:
@@ -235,13 +227,3 @@ Remove `pic.ppm` and `pic.png` from your filesystem:
 ```bash
 rm -f pic.ppm pic.png
 ```
-
-
-# Submission
-
-In comments at the top of `mandelbrot.c`, please include:
- - the compute times for running your program with 1, 2, 4, 8, 16, and 32
-   cores.
- - the answers to the questions from Part 4.
-
-Upload `mandelbrot.c` to the assignment page on LearningSuite.
