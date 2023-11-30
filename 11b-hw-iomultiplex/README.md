@@ -44,7 +44,7 @@ use nonblocking sockets, and edge-triggered monitoring to extra efficiency.
 
  2. Run `make` to build the server `echoservere`.
 
- 3. Start a tmux session with five panes open.  You are welcome to arrange them
+ 3. Start a tmux session with four panes open.  You are welcome to arrange them
     however you want, but it might be easiest to do it something like this:
 
     ```
@@ -328,9 +328,6 @@ panes.
 
 Remove the `break;` statement at the end of the `while(1)` loop (i.e., the one
 you inserted at the beginning of this section).
-
-Stop the client and then the server by using `ctrl`+`c` in their respective
-panes.
 
 Run `make` again, then start the server in the "server" pane:
 
