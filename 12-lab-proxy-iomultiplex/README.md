@@ -375,10 +375,10 @@ Then do the following:
        more data ready to be read; you will continue reading from the socket
        when you are notified by epoll that there is more data to be read.
      - If `errno` is anything else, this is an error.  Print out the error with
-       `perror()`, free the memory associated with the current
-       `struct request_info *`, and close the client-to-proxy socket.  Closing
-       the socket automatically unregisters it from any associations with the
-       epoll instance.
+       `perror()`, close the client-to-proxy socket, and free the memory
+       associated with the current `struct request_info *`.  Closing the socket
+       automatically unregisters it from any associations with the epoll
+       instance.
 
    - At this point, you can return from the function.  There is no more that
      can be done with the current HTTP request at this time.  `epoll_wait()`
@@ -442,10 +442,10 @@ using the proxy-to-server socket until one of the following happens:
      writing to the socket when you are notified by epoll that there is more
      buffer space available for writing.
    - If `errno` is anything else, this is an error.  Print out the error with
-     `perror()`, free the memory associated with the current
-     `struct request_info *`, and close both client-to-proxy and
-     proxy-to-server sockets.  Closing the sockets automatically unregisters
-     your sockets from any associations with the epoll instance.
+     `perror()`, close both client-to-proxy and proxy-to-server sockets, and
+     free the memory associated with the current `struct request_info *`.
+     Closing the sockets automatically unregisters your sockets from any
+     associations with the epoll instance.
 
 At this point, you can return from the function.  There is no more that can be
 done with the current HTTP request at this time.  `epoll_wait()` will notify
@@ -494,10 +494,10 @@ until one of the following happens:
      more data ready to be read; you will continue reading from the socket when
      you are notified by epoll that there is more data to be read.
    - If `errno` is anything else, this is an error.  Print out the error with
-     `perror()`, free the memory associated with the current
-     `struct request_info *`, and close both client-to-proxy and
-     proxy-to-server sockets.  Closing the sockets automatically unregisters
-     your sockets from any associations with the epoll instance.
+     `perror()`, close both client-to-proxy and proxy-to-server sockets, and
+     free the memory associated with the current `struct request_info *`.
+     Closing the sockets automatically unregisters your sockets from any
+     associations with the epoll instance.
 
 At this point, you can return from the function.  There is no more that can be
 done with the current HTTP request at this time.  `epoll_wait()` will notify
@@ -549,10 +549,10 @@ using the client-to-proxy socket until one of the following happens:
      writing to the socket when you are notified by epoll that there is more
      buffer space available for writing.
    - If `errno` is anything else, this is an error.  Print out the error with
-     `perror()`, free the memory associated with the current
-     `struct request_info *`, and close the client-to-proxy socket.  Closing
-     the socket automatically unregisters it from any associations with the
-     epoll instance.
+     `perror()`, close the client-to-proxy socket, and free the memory
+     associated with the current `struct request_info *`.  Closing the socket
+     automatically unregisters it from any associations with the epoll
+     instance.
 
 At this point, you can return from the function.  The HTTP request has been
 successfully handled!
