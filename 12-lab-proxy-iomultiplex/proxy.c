@@ -62,6 +62,7 @@ int main(int argc, char *argv[]) {
     }
 
     while (1) {
+	    printf("looping through the while loop\n");
 	    struct epoll_event events[64];
 	    int num_events = epoll_wait(efd, events, 64, 1000);
 
@@ -76,9 +77,11 @@ int main(int argc, char *argv[]) {
 
 	    for (int i = 0; i < num_events; ++i) {
 		if (events[i].data.fd == sfd) {
-		    // Event corresponds to the listening socket
+		    printf("got new client\n");
+	    	    // Event corresponds to the listening socket
 		    handle_new_clients(sfd, efd, &events[i]);
 		} else {
+		    printf("got old client\n");
 		    // Event corresponds to an existing client
 		    struct request_info *client_info = (struct request_info *)events[i].data.ptr;
 		    handle_client(client_info, efd);
@@ -226,36 +229,47 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
     printf("Handling client on FD %d in state %d\n", client_info->client_fd, client_info->curr_state);
 
     if (client_info->curr_state == READ_REQUEST) {
+        char buffer[2048];
+	char temp_buffer[2048];
+	strcpy(buffer, client_info->client_in_buff);
+        strcpy(temp_buffer, client_info->client_in_buff);
+	temp_buffer[client_info->bytes_read_client] = '\0';
+	printf("printing previous bytes: %s\n", temp_buffer);
+	ssize_t bytes_received = client_info->bytes_read_client;
         ssize_t new_bytes;
         while (1) {
-            new_bytes = read(client_info->client_fd, client_info->client_in_buff + client_info->bytes_read_client, sizeof(client_info->client_in_buff) - client_info->bytes_read_client);
-
+            new_bytes = read(client_info->client_fd, buffer + bytes_received, sizeof(buffer) - bytes_received);
             if (new_bytes > 0) {
-		client_info->bytes_read_client += new_bytes;
-		//printf("Bytes read: %s\n", buffer);
-		//Check if the terminal characters are present
-                if (strstr(client_info->client_in_buff, "\r\n\r\n") != NULL) {
+                bytes_received += new_bytes;
+
+                // Check if the entire HTTP request has been received
+                if (strstr(buffer, "\r\n\r\n") != NULL) {
+                    // Print the HTTP request bytes
                     printf("Received HTTP request:\n");
-                    print_bytes((unsigned char *)client_info->client_in_buff, client_info->bytes_read_client);
-		    client_info->client_in_buff[client_info->bytes_read_client] = '\0';
-		    printf("Bytes read: %s\n", client_info->client_in_buff);
+                    print_bytes((unsigned char *)buffer, bytes_received);
+
+                    // Null-terminate the HTTP request
+                    buffer[bytes_received] = '\0';
+
+                    // Parse the HTTP request
                     char method[16], hostname[64], port[8], path[64];
-                    
-		    //Parse the request and see
-		    if (parse_request(client_info->client_in_buff, method, hostname, port, path)) {
+		    if (parse_request(buffer, method, hostname, port, path)) {
+                        // Print components of the HTTP request
                         printf("Method: %s\n", method);
                         printf("Hostname: %s\n", hostname);
                         printf("Port: %s\n", port);
                         printf("Path: %s\n", path);
 
+                        // Create request to send to the server
                         char server_request[4096];
                         snprintf(server_request, sizeof(server_request),
-                                 "%s /%s HTTP/1.0\r\nHost: %s:%s\r\n%s\r\nConnection: close\r\nProxy-Connection: close\r\n\r\n",
-                                 method, path, hostname, port, client_info->client_in_buff);
-
+                                 "%s /%s HTTP/1.0\r\nHost: %s:%s\r\n%s\r\nConnection: close\r\nProxy-Connection: close\r\n\r\n", method, path, hostname, port, buffer);
+			client_info->client_out_buff = server_request;
+                        // Print the request to be sent to the server
                         printf("Sending request to server:\n");
                         print_bytes((unsigned char *)server_request, strlen(server_request));
-			printf("Done printing out bytes\n");
+
+                        // Create a new socket and connect to the server
                         client_info->server_fd = open_server(hostname, port);
                         if (client_info->server_fd == -1) {
                             perror("connect");
@@ -264,6 +278,7 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
                             return;
                         }
 
+                        // Configure the new socket as nonblocking
                         int flags = fcntl(client_info->server_fd, F_GETFL, 0);
                         flags |= O_NONBLOCK;
                         if (fcntl(client_info->server_fd, F_SETFL, flags) < 0) {
@@ -274,17 +289,23 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
                             return;
                         }
 
+                        // Unregister client-to-proxy socket from epoll
                         struct epoll_event ev;
                         ev.events = EPOLLIN | EPOLLET;
                         ev.data.fd = client_info->client_fd;
                         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_info->client_fd, &ev);
 
+                        // Register proxy-to-server socket with epoll for writing
                         ev.events = EPOLLOUT | EPOLLET;
                         ev.data.ptr = client_info;
                         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_info->server_fd, &ev);
 
+                        // Change the state to SEND_REQUEST
                         client_info->curr_state = SEND_REQUEST;
-			printf("done handling read request state\n");
+
+			client_info->client_in_buff = buffer;
+			client_info->bytes_read_client = bytes_received;
+
                         return;
                     }
                 }
@@ -297,9 +318,60 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
                 // Error reading from the socket
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     // No more data ready to be read; continue when epoll notifies
-                    return;
+		    client_info->client_in_buff = buffer;
+		    client_info->bytes_read_client = bytes_received;
+		    printf("num bytes received: %ld\n", bytes_received);
+		    return;
                 } else {
                     perror("read");
+                    return;
+                }
+            }
+        }
+    }
+    else if (client_info->curr_state == SEND_REQUEST) {
+        printf("Handling send request state\n");
+        ssize_t bytes_sent;
+	client_info->bytes_to_write_client = client_info->bytes_read_client;
+        while (1) {
+	    printf("bytes to send: %d\n", client_info->bytes_read_client - client_info->bytes_written_client);
+            bytes_sent = write(client_info->server_fd, client_info->client_out_buff + client_info->bytes_written_client, client_info->bytes_to_write_client - client_info->bytes_written_client);
+	    client_info->bytes_written_client += bytes_sent;
+	    printf("bytes sent: %d\n", client_info->bytes_written_client);
+	    printf("done writing to server\n");
+            if (bytes_sent > 0) {
+                printf("bytes sent greater than 0\n");
+                if (client_info->bytes_written_client == client_info->bytes_to_write_client) {
+                    // Sent entire HTTP request to the server
+                    struct epoll_event ev;
+                    ev.events = EPOLLOUT | EPOLLET;
+                    ev.data.ptr = client_info;
+                    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_info->server_fd, &ev);
+
+                    ev.events = EPOLLIN | EPOLLET;
+                    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_info->server_fd, &ev);
+
+                    client_info->curr_state = READ_RESPONSE;
+			
+		    printf("Done writing all of the bytes\n");
+                    return;
+                }
+            } else if (bytes_sent == 0) {
+                // Connection closed by the server
+                printf("bytes sent equal to 0\n");
+		close(client_info->server_fd);
+                close(client_info->client_fd);
+                free(client_info);
+                return;
+            } else {
+                // Error writing to the socket
+                printf("bytes sent less than 0\n");
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    // No more buffer space available; continue when epoll notifies
+                    return;
+                } else {
+                    perror("write");
+                    close(client_info->server_fd);
                     close(client_info->client_fd);
                     free(client_info);
                     return;
@@ -307,8 +379,52 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
             }
         }
     }
-    else if(client_info->curr_state == SEND_REQUEST) {
-	printf("got to the send_request part\n");
+    else if (client_info->curr_state == READ_RESPONSE) {
+        printf("Handling read response\n");
+	ssize_t new_bytes = 0;
+        while (1) {
+            new_bytes = read(client_info->server_fd, client_info->server_in_buff + client_info->bytes_read_server, 2048);
+	    client_info->bytes_read_server += new_bytes;
+            if (new_bytes > 0) {
+		printf("read bytes\n");
+                printf("%ld\n", new_bytes);
+		client_info->bytes_read_server += new_bytes;
+            } else if (new_bytes == 0) {
+                // Connection closed by the server
+                close(client_info->server_fd);
+                printf("Received complete HTTP response:\n");
+                printf("%s\n", client_info->server_in_buff);
+		//print_bytes((unsigned char *)client_info->server_in_buff, client_info->bytes_read_server);
+
+                // Register client-to-proxy socket with epoll for writing
+                struct epoll_event ev;
+                ev.events = EPOLLOUT | EPOLLET;
+                ev.data.ptr = client_info;
+                epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client_info->client_fd, &ev);
+
+                // Change state to SEND_RESPONSE
+                client_info->curr_state = SEND_RESPONSE;
+		printf("state should be set to send_response\n");
+                return;
+            } else {
+                // Error reading from the socket
+                printf("%s\n", client_info->server_in_buff);
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    // No more data ready to be read; continue when epoll notifies
+                    printf("no more data read\n");
+		    return;
+                } else {
+                    perror("read");
+                    close(client_info->server_fd);
+                    close(client_info->client_fd);
+                    free(client_info);
+                    return;
+                }
+            }
+        }
+    }    
+    else if (client_info->curr_state == SEND_RESPONSE) {
+	printf("Send response to client\n");
     }
 }
 
@@ -329,10 +445,10 @@ int parse_request(char *request, char *method,
         beginning = end + 1;
         end = strstr(beginning, "://");
 	beginning = end + 3;
-	printf("done with first round of printing bytes\n");
         end = strstr(beginning, " ");
-        char *url = malloc(1024);
+        char *url = malloc(end - beginning + 1);
         strncpy(url, beginning, end - beginning);
+	url[end - beginning] = '\0';
         char *contains_colon = strstr(url, ":");
 	if (contains_colon != NULL) {
             end = strstr(beginning, ":");
@@ -352,7 +468,7 @@ int parse_request(char *request, char *method,
         end = strstr(beginning, " ");
         strncpy(path, beginning, end - beginning);
         path[end - beginning] = '\0';
-
+	free(url);
         return 1;
     }
     return 0;
