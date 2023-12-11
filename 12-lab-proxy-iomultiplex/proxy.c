@@ -174,8 +174,8 @@ struct request_info *make_default_struct() {
     def_struct->curr_state = READ_REQUEST;
     def_struct->client_in_buff = (char *)malloc(2048 * sizeof(char));
     def_struct->client_out_buff = (char *)malloc(2048 * sizeof(char));
-    def_struct->server_in_buff = (char *)malloc(2048 * sizeof(char));
-    def_struct->server_out_buff = (char *)malloc(2048 * sizeof(char));
+    def_struct->server_in_buff = (char *)malloc(MAX_OBJECT_SIZE * sizeof(char));
+    def_struct->server_out_buff = (char *)malloc(MAX_OBJECT_SIZE * sizeof(char));
     def_struct->bytes_read_client = 0;
     def_struct->bytes_written_client = 0;
     def_struct->bytes_to_write_client = 0;
@@ -444,6 +444,10 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
 		} else if (bytes_sent == 0) {
 		    // Connection closed by the client
 		    close(client_info->client_fd);
+		    free(client_info->client_in_buff);
+		    free(client_info->client_out_buff);
+		    free(client_info->server_in_buff);
+		    free(client_info->server_out_buff);
 		    free(client_info);
 		    return;
 		} else {

@@ -90,10 +90,8 @@
 
         <ul class="traffic-list">
             <li>
-                <h3>About 30 TCP SYN packets in short succession, several times per day, writing bytes to the client
-
-ate 4
->
+                <h3>About 30 TCP SYN packets in short succession, several times per day, per IP address
+                </h3>
                 <p>We are conducting a measurement study that uses SYN packets (and their corresponding SYNACKs) to 1) identify OS and 2) determine whether or not SYN cookies are in use.  We believe that our findings, in aggregate, will help us get a picture of security and stability of the Internet, as indicated by servers experiencing high volume or SYN floods over time.</p>
             </li>
             <li>
