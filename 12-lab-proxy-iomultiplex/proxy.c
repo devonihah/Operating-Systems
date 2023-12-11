@@ -18,7 +18,7 @@
 #define READ_RESPONSE 3
 #define SEND_RESPONSE 4
 
-static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:97.0) Gecko/20100101 Firefox/97.0";
+//static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:97.0) Gecko/20100101 Firefox/97.0";
 
 void test_parser();
 void print_bytes(unsigned char *, int);
@@ -47,7 +47,7 @@ struct request_info {
 int main(int argc, char *argv[]) {
     const char *port_str = (argc > 1) ? argv[1] : "8080";
 
-    printf("%s\n", user_agent_hdr);
+    //printf("%s\n", user_agent_hdr);
 
     int sfd = open_sfd(port_str);
     int efd = epoll_create1(0);
@@ -76,11 +76,11 @@ int main(int argc, char *argv[]) {
 
 	    for (int i = 0; i < num_events; ++i) {
 		if (events[i].data.fd == sfd) {
-		    printf("got new client\n");
+		    //printf("got new client\n");
 	    	    // Event corresponds to the listening socket
 		    handle_new_clients(sfd, efd, &events[i]);
 		} else {
-		    printf("got old client\n");
+		    //printf("got old client\n");
 		    // Event corresponds to an existing client
 		    struct request_info *client_info = (struct request_info *)events[i].data.ptr;
 		    handle_client(client_info, efd);
@@ -141,6 +141,7 @@ int open_server(const char *hostname, const char *port) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
+    printf("hostname: %s, port: %s\n", hostname, port);
     if (getaddrinfo(hostname, port, &hints, &res) != 0) {
         perror("getaddrinfo");
         return -1;
@@ -243,31 +244,31 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
                 if (strstr(buffer, "\r\n\r\n") != NULL) {
                     // Print the HTTP request bytes
                     printf("Received HTTP request:\n");
-                    //print_bytes((unsigned char *)buffer, bytes_received);
                     // Null-terminate the HTTP request
                     buffer[bytes_received] = '\0';
 		    printf("%s\n", buffer);
                     // Parse the HTTP request
                     char method[16], hostname[64], port[8], path[64];
 		    if (parse_request(buffer, method, hostname, port, path)) {
-                        char * beginning = strstr(buffer, "Host");
+    			printf("Method: %s\n", method);
+			printf("Hostname: %s\n", hostname);
+			printf("Port: %s\n", port);
+			printf("Path: %s\n", path);
+
+		    	char * beginning = strstr(buffer, "Host");
 			char * end = (beginning != NULL) ? strstr(beginning, "\r\n\r\n") : NULL;	
 			char * headers = malloc(1024);
 			strncpy(headers, beginning, end - beginning);
 			headers[end - beginning] = '\0';
-			printf("get all headers\n");
-			size_t total_length = snprintf(NULL, 0, "%s /%s HTTP/1.0\r\n%s\r\nConnection: close\r\nProxy_Connection: close\r\n\r\n", method, path, headers);
+			size_t total_length = snprintf(NULL, 0, "%s /%s HTTP/1.0\r\n%s\r\n\r\n", method, path, headers);
 	
 			char * server_request = (char*)malloc(total_length);
-			snprintf(server_request,  total_length, "%s /%s HTTP/1.0\r\n%s\r\nConnection: close\r\nProxy-Connection: close\r\n\r\n", method, path, headers);
+			snprintf(server_request,  total_length, "%s /%s HTTP/1.0\r\n%s\r\n\r\n", method, path, headers);
 			server_request[total_length - 1] = '\n';
-			//print_bytes((unsigned char*)combined_str, total_length);
-			printf("combined string: %s\n", server_request);	
 			
 			// Print the request to be sent to the server
                         printf("Sending request to server:\n");
-                        //print_bytes((unsigned char *)server_request, strlen(server_request));
-
+			printf("%s\n", server_request);
                         // Create a new socket and connect to the server
                         client_info->server_fd = open_server(hostname, port);
                         if (client_info->server_fd == -1) {
@@ -302,7 +303,6 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
                         // Change the state to SEND_REQUEST
                         client_info->curr_state = SEND_REQUEST;
 			
-			printf("%s\n", server_request);
 			client_info->client_in_buff = buffer;
 			client_info->bytes_to_write_client = strlen(server_request);
 			client_info->client_out_buff = server_request;
@@ -381,16 +381,13 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
 	ssize_t new_bytes = 0;
         while (1) {
             new_bytes = read(client_info->server_fd, client_info->server_in_buff + client_info->bytes_read_server, 2048);
-	    client_info->bytes_read_server += new_bytes;
             if (new_bytes > 0) {
-		printf("read bytes\n");
-                printf("%ld\n", new_bytes);
-		client_info->bytes_read_server += new_bytes;
+	    	client_info->bytes_read_server += new_bytes;
             } else if (new_bytes == 0) {
                 // Connection closed by the server
                 close(client_info->server_fd);
                 printf("Received complete HTTP response:\n");
-                printf("%s\n", client_info->server_in_buff);
+                //printf("%s\n", client_info->server_in_buff);
 		//print_bytes((unsigned char *)client_info->server_in_buff, client_info->bytes_read_server);
 
                 // Register client-to-proxy socket with epoll for writing
@@ -404,7 +401,6 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
                 return;
             } else {
                 // Error reading from the socket
-                printf("%s\n", client_info->server_in_buff);
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     // No more data ready to be read; continue when epoll notifies
                     printf("no more data read\n");
@@ -420,50 +416,50 @@ void handle_client(struct request_info *client_info, int epoll_fd) {
         }
     }    
     else if (client_info->curr_state == SEND_RESPONSE) {
-    printf("Handling send response state\n");
-    ssize_t bytes_sent;
-    while (1) {
-        // Check if there is anything left to send
-        if (client_info->bytes_written_server == client_info->bytes_read_server) {
-            // Entire HTTP response has been sent to the client
-            printf("Entire HTTP response sent to the client\n");
-            
-            // Free memory associated with the current struct request_info
-            // and close the client-to-proxy socket
-            close(client_info->client_fd);
-            free(client_info);
+	    printf("Handling send response state\n");
+	    ssize_t bytes_sent;
+	    while (1) {
+		// Check if there is anything left to send
+		if (client_info->bytes_written_server == client_info->bytes_read_server) {
+		    // Entire HTTP response has been sent to the client
+		    printf("Entire HTTP response sent to the client\n");
+		    
+		    // Free memory associated with the current struct request_info
+		    // and close the client-to-proxy socket
+		    close(client_info->client_fd);
+		    free(client_info);
 
-            // You are done!
-            return;
-        }
+		    // You are done!
+		    return;
+		}
+		printf("writing bytes to the client\n");
+		// Continue writing the HTTP response to the client socket
+		bytes_sent = write(client_info->client_fd,
+				   client_info->server_in_buff + client_info->bytes_written_server,
+				   client_info->bytes_read_server - client_info->bytes_written_server);
 
-        // Continue writing the HTTP response to the client socket
-        bytes_sent = write(client_info->client_fd,
-                           client_info->server_in_buff + client_info->bytes_written_server,
-                           client_info->bytes_read_server - client_info->bytes_written_server);
-
-        if (bytes_sent > 0) {
-            // Update the bytes_written_server counter
-            client_info->bytes_written_server += bytes_sent;
-        } else if (bytes_sent == 0) {
-            // Connection closed by the client
-            close(client_info->client_fd);
-            free(client_info);
-            return;
-        } else {
-            // Error writing to the socket
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // No more buffer space available; continue when epoll notifies
-                return;
-            } else {
-                perror("write");
-                close(client_info->client_fd);
-                free(client_info);
-                return;
-            }
-        }
-    }
-}
+		if (bytes_sent > 0) {
+		    // Update the bytes_written_server counter
+		    client_info->bytes_written_server += bytes_sent;
+		} else if (bytes_sent == 0) {
+		    // Connection closed by the client
+		    close(client_info->client_fd);
+		    free(client_info);
+		    return;
+		} else {
+		    // Error writing to the socket
+		    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			// No more buffer space available; continue when epoll notifies
+			return;
+		    } else {
+			perror("write");
+			close(client_info->client_fd);
+			free(client_info);
+			return;
+		    }
+		}
+	    }
+	}
 }
 
 int complete_request_received(char *request) {
@@ -481,10 +477,12 @@ int parse_request(char *request, char *method,
 		strncpy(method, beginning, end - beginning);
 		method[end - beginning] = '\0';
 		beginning = end + 1;
-		end = strstr(beginning, "://");
-		beginning = end + 3;
+		if (strstr(beginning, "://") != NULL) {
+		    end = strstr(beginning, "://");
+		    beginning = end + 3;
+		}
 		end = strstr(beginning, " ");
-		char * url = malloc(1024);
+		char * url = malloc(1024);		
 		strncpy(url, beginning, end - beginning);
 		char * contains_colon = strstr(url, ":");
 		if (contains_colon != NULL) {
@@ -506,7 +504,6 @@ int parse_request(char *request, char *method,
 		end = strstr(beginning, " ");
 		strncpy(path, beginning, end - beginning);
 		path[end - beginning] = '\0';
-		printf("%s\n", request);	
 		return 1;
 	}
 	return 0;
