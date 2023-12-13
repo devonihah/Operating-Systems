@@ -101,115 +101,116 @@ int main(int argc, char **argv)
  * them to complete before returning.
 */
 void close_extra_fd() {
-	int max_fd = getdtablesize();
-	for (int fd = 3; fd < max_fd; fd++) {
-		close(fd);
-	}
-	return;
+    int max_fd = getdtablesize();
+    for (int fd = 3; fd < max_fd; fd++) {
+        close(fd);
+    }
+}
+
+void write_to_pipe(int pipe_fds[]) {
+    if (close(pipe_fds[0]) == -1) {
+        perror("close");
+        exit(1);
+    }
+    dup2(pipe_fds[1], 1);
+    close(pipe_fds[1]);  // Close only the write end of the pipe
+}
+
+void read_from_pipe(int pipe_fds[]) {
+    close(pipe_fds[1]);  // Close only the write end of the pipe
+    dup2(pipe_fds[0], 0);
+    close(pipe_fds[0]);  // Close only the read end of the pipe
 }
 
 void handle_in_redir(char* argv[], int stdin_redir[], int index) {
-	if (stdin_redir[index] > -1) {
-		int in_fd = open(argv[stdin_redir[index]], O_RDONLY);
-		if (dup2(in_fd, 0) == -1) {
-			perror("dup2");
-			exit(1);
-		}
-		//closeExtraFD();
-	}
+    if (stdin_redir[index] > -1) {
+        int in_fd = open(argv[stdin_redir[index]], O_RDONLY);
+        if (in_fd == -1) {
+            perror("open");
+            exit(1);
+        }
+        if (dup2(in_fd, 0) == -1) {
+            perror("dup2");
+            exit(1);
+        }
+        close(in_fd);
+    }
 }
 
 void handle_out_redir(char* argv[], int stdout_redir[], int index) {
-	if (stdout_redir[index] > -1) {
-		int out_fd = open(argv[stdout_redir[index]], O_WRONLY | O_CREAT | O_TRUNC, 0600);
-		if (dup2(out_fd, 1) == -1) {
-			perror("dup2");
-			exit(1);
-		}
-		//closeExtraFD();
-	}
+    if (stdout_redir[index] > -1) {
+        int out_fd = open(argv[stdout_redir[index]], O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        if (out_fd == -1) {
+            perror("open");
+            exit(1);
+        }
+        if (dup2(out_fd, 1) == -1) {
+            perror("dup2");
+            exit(1);
+        }
+        close(out_fd);
+    }
 }
 
-void write_to_pipe(int pipe_fds[], char* argv[], int cmds[]) {
-	if (close(pipe_fds[0]) == -1) {
-		perror("close");
-		exit(1);
-	}
-	dup2(pipe_fds[1], 1);
-	if (close(pipe_fds[1]) == -1) {
-		perror("close");
-		exit(1);
-	}
-}
+void eval(char *cmdline) {
+    char *argv[MAXARGS];
+    parseline(cmdline, argv);
+    int cmds[MAXARGS];
+    int stdin_redir[MAXARGS];
+    int stdout_redir[MAXARGS];
+    int num_cmds = parseargs(argv, cmds, stdin_redir, stdout_redir);
 
-void read_from_pipe(int pipe_fds[], char* argv[], int cmds[]) {
-	if (close(pipe_fds[1]) == -1) { 
-		perror("close");
-		exit(1);
-	}
-	dup2(pipe_fds[0], 0);
-	if (close(pipe_fds[0]) == -1) {
-		perror("close");
-		exit(1);
-	}
-}
+    if (builtin_cmd(argv) == 0) {
+        int pgid = -1;
+        for (int i = 0; i < num_cmds; i++) {
+            int curr_pipe_fds[2];
+            if (pipe(curr_pipe_fds) == -1) {
+                perror("pipe");
+                exit(1);
+            }
 
-void eval(char *cmdline) 
-{
-	char *argv[MAXARGS];
-	parseline(cmdline, argv);
-	int cmds[MAXARGS];
-	int stdin_redir[MAXARGS];
-	int stdout_redir[MAXARGS];
-	//int size_cmds = sizeof(cmds) / sizeof(cmds[0]);
-	parseargs(argv, cmds, stdin_redir, stdout_redir);
-	if (builtin_cmd(argv) == 0) {
-		int pgid = -1;
-		int ret = -1;
-		int reps = 2;
-		for(int i = 0; i < reps; i++) {
-			int curr_pipe_fds[2];		
-			if (pipe(curr_pipe_fds) == -1) {
-				perror("curr_pipe_fds");
-				exit(1);
-			}
-			ret = fork();
-			if (ret == 0) {
-				if (pgid == -1) {
-					pgid = ret;
-				}
-				if (i > 0) {
-					read_from_pipe(curr_pipe_fds, argv, cmds);
-				}
-				if (i < (reps - 1) && reps != 1) {
-					write_to_pipe(curr_pipe_fds, argv, cmds);
-				}
-				handle_out_redir(argv, stdout_redir, i);
-				handle_in_redir(argv, stdin_redir, i);
-				
-				if (i == (reps - 1)) {
-					int stdout_fd = fileno(stdout);
-					printf("stdout is %d\n", stdout_fd);
-				}	
-				execve(argv[cmds[i]], &argv[cmds[i]], NULL);
-				perror("execve");
-				exit(1);
-			}
-			else {
-				//close(curr_pipe_fds[0]);
-				//close(curr_pipe_fds[1]);
-			}
-		}
-		
-		int status;
-		size_t result = waitpid(ret, &status, 0);
-			
-		if (result == -1) {
-			perror("waitpid");
-			exit(1);
-		}
-	}
-	return;
+            pid_t ret = fork();
+            if (ret == -1) {
+                perror("fork");
+                exit(1);
+            } else if (ret == 0) {
+                if (pgid == -1) {
+                    pgid = getpid();
+                }
+                if (i > 0) {
+                    read_from_pipe(curr_pipe_fds);
+                }
+                if (i < (num_cmds - 1) && num_cmds != 1) {
+                    write_to_pipe(curr_pipe_fds);
+                }
+                handle_out_redir(argv, stdout_redir, i);
+                handle_in_redir(argv, stdin_redir, i);
+
+		close_extra_fd(curr_pipe_fds);
+
+                if (i == (num_cmds - 1)) {
+                    //int stdout_fd = fileno(stdout);
+                    //printf("stdout is %d\n", stdout_fd);
+                }
+                execvp(argv[cmds[i]], &argv[cmds[i]]);
+                perror("execvp");
+                exit(1);
+            } else {
+                // Parent process
+                if (pgid != -1) {
+                    setpgid(ret, pgid);
+                }
+                close(curr_pipe_fds[0]);
+                close(curr_pipe_fds[1]);
+            }
+        }
+
+        // Wait for all child processes to finish
+        int status;
+        while (waitpid(-1, &status, 0) > 0) {
+            // Handle status as needed
+        }
+    }
 }
 /* 
  * parseargs - Parse the arguments to identify pipelined commands

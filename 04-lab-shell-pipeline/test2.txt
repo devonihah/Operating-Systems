@@ -1,1 +1,1 @@
-foo bar
+stdout is 1
