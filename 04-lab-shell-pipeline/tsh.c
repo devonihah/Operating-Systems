@@ -108,18 +108,15 @@ void close_extra_fd() {
 }
 
 void write_to_pipe(int pipe_fds[]) {
-    if (close(pipe_fds[0]) == -1) {
-        perror("close");
-        exit(1);
-    }
+    close(pipe_fds[0]);  // Close the read end of the pipe
     dup2(pipe_fds[1], 1);
-    close(pipe_fds[1]);  // Close only the write end of the pipe
+    close(pipe_fds[1]);  // Close the duplicated write end of the pipe
 }
 
 void read_from_pipe(int pipe_fds[]) {
-    close(pipe_fds[1]);  // Close only the write end of the pipe
+    close(pipe_fds[1]);  // Close the write end of the pipe
     dup2(pipe_fds[0], 0);
-    close(pipe_fds[0]);  // Close only the read end of the pipe
+    close(pipe_fds[0]);  // Close the duplicated read end of the pipe
 }
 
 void handle_in_redir(char* argv[], int stdin_redir[], int index) {
@@ -160,6 +157,8 @@ void eval(char *cmdline) {
     int stdout_redir[MAXARGS];
     int num_cmds = parseargs(argv, cmds, stdin_redir, stdout_redir);
 
+    int prev_pipe_fds[2];  // Declare prev_pipe_fds here
+
     if (builtin_cmd(argv) == 0) {
         int pgid = -1;
         for (int i = 0; i < num_cmds; i++) {
@@ -174,24 +173,33 @@ void eval(char *cmdline) {
                 perror("fork");
                 exit(1);
             } else if (ret == 0) {
+                // Child process
                 if (pgid == -1) {
                     pgid = getpid();
                 }
+
                 if (i > 0) {
-                    read_from_pipe(curr_pipe_fds);
+                    close(prev_pipe_fds[0]);
+                    dup2(prev_pipe_fds[1], 1);
+                    close(prev_pipe_fds[1]);
                 }
-                if (i < (num_cmds - 1) && num_cmds != 1) {
-                    write_to_pipe(curr_pipe_fds);
+
+                if (i < (num_cmds - 1)) {
+                    close(curr_pipe_fds[1]);
+                    dup2(curr_pipe_fds[0], 0);
+                    close(curr_pipe_fds[0]);
                 }
+
                 handle_out_redir(argv, stdout_redir, i);
                 handle_in_redir(argv, stdin_redir, i);
 
-		close_extra_fd(curr_pipe_fds);
+                close_extra_fd(curr_pipe_fds);
 
                 if (i == (num_cmds - 1)) {
                     //int stdout_fd = fileno(stdout);
                     //printf("stdout is %d\n", stdout_fd);
                 }
+
                 execvp(argv[cmds[i]], &argv[cmds[i]]);
                 perror("execvp");
                 exit(1);
@@ -200,8 +208,14 @@ void eval(char *cmdline) {
                 if (pgid != -1) {
                     setpgid(ret, pgid);
                 }
-                close(curr_pipe_fds[0]);
-                close(curr_pipe_fds[1]);
+
+                if (i > 0) {
+                    close(prev_pipe_fds[0]);
+                    close(prev_pipe_fds[1]);
+                }
+
+                prev_pipe_fds[0] = curr_pipe_fds[0];
+                prev_pipe_fds[1] = curr_pipe_fds[1];
             }
         }
 
@@ -212,6 +226,8 @@ void eval(char *cmdline) {
         }
     }
 }
+
+
 /* 
  * parseargs - Parse the arguments to identify pipelined commands
  * Walk through each of the arguments to find each pipelined command.  )If the
